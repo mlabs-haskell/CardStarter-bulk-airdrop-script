@@ -52,7 +52,7 @@ accept_pirs: requires_nix_shell
 	stack build --test $(STACK_FLAGS) $(GHC_FLAGS) --ta '-p MarketAction --accept'
 
 ghci: requires_nix_shell
-	cabal v2-repl $(GHC_FLAGS) liquidity-bridge
+	cabal v2-repl $(GHC_FLAGS) lib:token-airdrop
 
 
 # Source dirs to run fourmolu on

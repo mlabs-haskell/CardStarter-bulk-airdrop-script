@@ -2,64 +2,39 @@
 
 module FakePAB.CardanoCLI (
   submitTx,
-  validatorScriptFilePath,
   unsafeSerialiseAddress,
-  policyScriptFilePath,
   utxosAt,
   submitScript,
 ) where
 
-import Cardano.Api (signShelleyTransaction)
 import Cardano.Api.Shelley (NetworkId (Mainnet, Testnet), NetworkMagic (..), serialiseAddress)
-import Cardano.Crypto.Wallet (unXPub)
-import Crypto.Hash (Blake2b_160, hash)
-import Data.Aeson qualified as JSON
+import Config (Config (..))
 import Data.Aeson.Extras (encodeByteString)
 import Data.Attoparsec.Text (parseOnly)
-import Data.ByteArray.Encoding (Base (Base16), convertToBase)
-import Data.ByteString (ByteString)
-import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Either.Combinators (rightToMaybe)
 import Data.List (sort)
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (mapMaybe, maybeToList)
+import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
-import Ledger qualified
+import FakePAB.PreBalance (preBalanceTx)
+import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address (..), pubKeyHashAddress)
 import Ledger.Constraints.OffChain (UnbalancedTx (..))
-import Ledger.Scripts qualified as Scripts
-import Ledger.Tx (
-  ChainIndexTxOut,
-  RedeemerPtr (..),
-  Redeemers,
-  ScriptTag (..),
-  Tx (..),
-  TxIn (..),
-  TxInType (..),
-  TxOut (..),
-  TxOutRef (..),
- )
+import Ledger.Tx (ChainIndexTxOut, Tx (..), TxIn (..), TxOut (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
 import Ledger.TxId (TxId (..))
 import Ledger.Value (Value)
 import Ledger.Value qualified as Value
-import LiquidityBridge.Config qualified as Config
-import FakePAB.PreBalance (preBalanceTx)
-import Config (Config(..))
-import FakePAB.UtxoParser qualified as UtxoParser
-import Plutus.Contract.CardanoAPI (toCardanoAddress, toCardanoTxBody)
-import Plutus.Contract.Wallet (ExportTx (..))
+import Plutus.Contract.CardanoAPI (toCardanoAddress)
 import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
 import PlutusTx.Builtins (fromBuiltin)
 import System.Process (readProcess)
-import Wallet.Emulator (Wallet (..))
-import Wallet.Emulator.Wallet (walletXPub)
 import Prelude
 
 data ShellCommand a = ShellCommand
@@ -69,26 +44,23 @@ data ShellCommand a = ShellCommand
   }
 
 callCommand :: ShellCommand a -> IO a
-callCommand   ShellCommand {cmdName, cmdArgs, cmdOutParser} =
-    cmdOutParser <$> readProcess (Text.unpack cmdName) (map Text.unpack cmdArgs) ""
-
-
+callCommand ShellCommand {cmdName, cmdArgs, cmdOutParser} =
+  cmdOutParser <$> readProcess (Text.unpack cmdName) (map Text.unpack cmdArgs) ""
 
 {- | Submit a transaction by calling cardano-cli commands
  Returns an error message if submitting the transaction fails.
 -}
-submitScript :: Config -> Wallet -> UnbalancedTx -> IO (Maybe Text)
-submitScript config _ UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
+submitScript :: Config -> UnbalancedTx -> IO (Either Text ())
+submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
   -- Configuration
   let minLovelaces = 45
       -- Fees are added by the cli, but we need to include enought tx inputs to cover these fees
       fees = 70921796
-      serverPkh = Config.serverPubKeyHash -- own pub key hash
+      serverPkh = config.ownPubKeyHash -- own pub key hash
       ownAddr = pubKeyHashAddress serverPkh
       signingKeyFile = "./alonzo-testnet/addresses/server.skey"
 
   utxos <- utxosAt config ownAddr
-
 
   let utxoIndex = fmap Tx.toTxOut utxos <> unBalancedTxUtxoIndex
       eitherPreBalancedTx =
@@ -99,18 +71,17 @@ submitScript config _ UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
   case eitherPreBalancedTx of
     Left errMsg -> error $ Text.unpack errMsg
     Right preparedTx -> do
-      buildTx config ownAddr signingKeyFile preparedTx
-      signTx config signingKeyFile
+      buildTx config ownAddr preparedTx
+      signTx signingKeyFile
 
       if config.dryRun
-        then pure Nothing
+        then pure $ Right ()
         else submitTx config
 
 -- | Getting all available UTXOs at an address (all utxos are assumed to be PublicKeyChainIndexTxOut)
 utxosAt :: Config -> Address -> IO (Map TxOutRef ChainIndexTxOut)
 utxosAt config address = do
   callCommand
-    config
     ShellCommand
       { cmdName = "cardano-cli"
       , cmdArgs =
@@ -127,14 +98,14 @@ utxosAt config address = do
     toUtxo line = parseOnly (UtxoParser.utxoMapParser address) line
 
 -- | Build a tx body and write it to disk
-buildTx :: Config -> Address -> Text -> Tx -> IO ()
-buildTx config ownAddr signingKeyFile tx =
-  callCommand config $ ShellCommand "cardano-cli" opts (const ())
+buildTx :: Config -> Address -> Tx -> IO ()
+buildTx config ownAddr tx =
+  callCommand $ ShellCommand "cardano-cli" opts (const ())
   where
     opts =
       mconcat
         [ ["transaction", "build", "--alonzo-era"]
-        , txInOpts config (txInputs tx)
+        , txInOpts (txInputs tx)
         , txInCollateralOpts (txCollateral tx)
         , txOutOpts config (txOutputs tx)
         , mconcat
@@ -146,9 +117,9 @@ buildTx config ownAddr signingKeyFile tx =
         ]
 
 -- Signs and writes a tx (uses the tx body written to disk as input)
-signTx :: Config -> Text -> IO ()
-signTx config signingKeyFile =
-  callCommand config $
+signTx :: Text -> IO ()
+signTx signingKeyFile =
+  callCommand $
     ShellCommand
       "cardano-cli"
       ( mconcat
@@ -161,9 +132,9 @@ signTx config signingKeyFile =
       (const ())
 
 -- Signs and writes a tx (uses the tx body written to disk as input)
-submitTx :: Config -> IO (Maybe Text)
+submitTx :: Config -> IO (Either Text ())
 submitTx config =
-  callCommand config $
+  callCommand $
     ShellCommand
       "cardano-cli"
       ( mconcat
@@ -174,22 +145,21 @@ submitTx config =
       )
       ( ( \out ->
             if "Transaction successfully submitted." `Text.isPrefixOf` out
-              then Nothing
-              else Just out
+              then Right ()
+              else Left out
         )
           . Text.pack
       )
 
-txInOpts :: Config -> Set TxIn -> [Text]
-txInOpts config =
+txInOpts :: Set TxIn -> [Text]
+txInOpts =
   concatMap
-    ( \(TxIn txOutRef txInType) -> ["--tx-in", txOutRefToCliArg txOutRef])
+    (\(TxIn txOutRef _) -> ["--tx-in", txOutRefToCliArg txOutRef])
     . Set.toList
 
 txInCollateralOpts :: Set TxIn -> [Text]
 txInCollateralOpts =
   concatMap (\(TxIn txOutRef _) -> ["--tx-in-collateral", txOutRefToCliArg txOutRef]) . Set.toList
-
 
 txOutOpts :: Config -> [TxOut] -> [Text]
 txOutOpts config =
@@ -239,8 +209,3 @@ unsafeSerialiseAddress config address =
 
 showText :: Show a => a -> Text
 showText = Text.pack . show
-
--- TODO: There is some issue with this function, the generated wallet key is incorrect
-toWalletKey :: Wallet -> Text
-toWalletKey =
-  decodeUtf8 . convertToBase Base16 . hash @ByteString @Blake2b_160 . unXPub . walletXPub

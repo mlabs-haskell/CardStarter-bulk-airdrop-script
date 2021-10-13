@@ -1,5 +1,5 @@
 cabal-version:      3.0
-name:               liquidity-bridge
+name:               token-airdrop
 version:            0.1
 synopsis:           Batch airdropping tokens with a CLI
 homepage:           https://github.com/mlabs-haskell/CardStarter-TokenAirdrop
@@ -71,21 +71,20 @@ common common-lang
 
 library
   import:          common-lang
-  exposed-modules: FakePAB
+  exposed-modules: TokenAirdrop
   other-modules:
+    Config
     FakePAB.CardanoCLI
     FakePAB.Constraints
-    FakePAB.Files
     FakePAB.PreBalance
-    FakePAB.Types
     FakePAB.UtxoParser
 
   build-depends:
-    , aeson               ^>=1.5.0.0
+    , aeson                 ^>=1.5.0.0
     , aeson-casing
     , ansi-terminal
-    , attoparsec          >=0.13.2.2
-    , bytestring          ^>=0.10.12.0
+    , attoparsec            >=0.13.2.2
+    , bytestring            ^>=0.10.12.0
     , cardano-api
     , cardano-crypto
     , cardano-prelude
@@ -93,13 +92,12 @@ library
     , cryptonite
     , data-default
     , data-default-class
-    , directory
     , either
     , freer-extras
     , freer-simple
     , lens
-    , liquidity-bridge
     , memory
+    , optparse-applicative
     , playground-common
     , plutus-chain-index
     , plutus-contract
@@ -113,17 +111,11 @@ library
     , process
     , row-types
     , serialise
-    , servant
-    , servant-server
-    , servant-websockets
     , split
     , stm
-    , text                ^>=1.2.4.0
+    , text                  ^>=1.2.4.0
     , uuid
-    , vector              ^>=0.12.1.2
-    , wai
-    , warp
-    , websockets
+    , vector                ^>=0.12.1.2
 
   hs-source-dirs:  src
 

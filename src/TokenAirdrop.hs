@@ -1,61 +1,52 @@
 {-# LANGUAGE DeriveAnyClass #-}
 
-module TokenAirdrop (main) where
+module TokenAirdrop (tokenAirdrop, testConfig, group) where
 
 import Cardano.Api (NetworkId (Testnet), NetworkMagic (..))
-import Control.Concurrent (ThreadId, forkIO)
-import Control.Concurrent.STM (TVar, atomically, modifyTVar, newTVarIO, readTVar, retry)
-import Control.Monad (forever, guard, unless, void)
-import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (FromJSON, ToJSON (toJSON))
-import Data.Aeson qualified as JSON
-import Data.ByteString.Lazy qualified as LazyByteString
-import Data.Map (Map)
-import Data.Map qualified as Map
-import Data.Maybe (fromMaybe)
-import Data.Proxy (Proxy (Proxy))
+import Config (Config (..))
 import Data.Text (Text)
-import Data.UUID.V4 qualified as UUID
 import Data.Void (Void)
-import GHC.Generics (Generic)
-import Ledger qualified
-import LiquidityBridge.Config qualified as Config
-import LiquidityBridge.PaymentConfirmation qualified as PaymentConfirmation
-import LiquidityBridge.Schema (PCEParams, PCLParams)
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx)
-import Config (Config(..))
-import Wallet.Emulator (Wallet, knownWallet)
-import Wallet.Types (ContractInstanceId (..))
+import Ledger qualified
+import Ledger.Constraints qualified as Constraints
+import Ledger.Value qualified as Value
 import Prelude
 
-config :: Config
-config = Config 
-  { network = 
-  , -- | Protocol params file location relative to the cardano-cli working directory (needed for the cli)
-    protocolParamsFile :: !Text
-  , -- | File name where the transaction body will be saved
-    txBodyFile :: !Text
-  , -- | File name where the signed transaction will be saved
-    txFile :: !Text
-  , -- | Dry run mode will build the tx, but skip the submit step
-    dryRun :: !Bool
-  , minLovelaces = 45
-    , fees =70921796 
-  }
+testConfig :: Config
+testConfig =
+  Config
+    { network = Testnet (NetworkMagic 42)
+    , protocolParamsFile = "./protocol.json"
+    , ownPubKeyHash = "8d4d1e90f91c5d330bb8e159bc51e26a3acc5eaafa4f19c38e617ea9"
+    , assetClass = Value.assetClass "ac12" "token"
+    , beneficiaries = []
+    , txBodyFile = "./tx.raw"
+    , txFile = "./tx.signed"
+    , beneficiaryPerTx = 5
+    , dryRun = True
+    , minLovelaces = 45
+    , fees = 70921796
+    }
 
-tokenAirdrop :: Config -> IO (Maybe Text)
-tokenAirdrop pabConf = do
-  utxos <- utxosAt pabConf $ Ledger.pubKeyHashAddress  config.ownPubKeyHash
-  lookups =
-    Constraints.otherScript (validator server)
-      <> Constraints.unspentOutputs utxos
-      <> Constraints.otherData Ledger.unitDatum
+tokenAirdrop :: Config -> IO [Either Text ()]
+tokenAirdrop config = do
+  utxos <- utxosAt config $ Ledger.pubKeyHashAddress config.ownPubKeyHash
+  let lookups = Constraints.unspentOutputs utxos
+      txs =
+        map mconcat $
+          group config.beneficiaryPerTx $
+            map
+              ( \beneficiary ->
+                  Constraints.mustPayToPubKey
+                    beneficiary.pubKeyHash
+                    (Value.assetClassValue config.assetClass beneficiary.amount)
+              )
+              config.beneficiaries
 
-  tx =
-    TxConstraints.mustPayToPubKey recip val
-      <> mconcat
-          (map (`TxConstraints.mustSpendScriptOutput` Ledger.unitRedeemer) (Map.keys utxos))
+  mapM (submitTx @Void config lookups) txs
 
-
-  submitTx @Void pabConf wallet lookups tx
+group :: Int -> [a] -> [[a]]
+group n list
+  | length list <= n = [list]
+  | otherwise = let (xs, xss) = splitAt n list in xs : group n xss

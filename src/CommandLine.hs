@@ -1,7 +1,9 @@
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE NamedFieldPuns #-}
-module CommandLine (Config(..))
 
+module CommandLine (parseCommand) where
+
+import Config (Config (..))
 import Control.Applicative (many, (<**>), (<*>))
 import Data.List (intercalate, nub)
 import Data.List.Split (splitOn)
@@ -32,15 +34,13 @@ import Options.Applicative (
 import System.Environment (getArgs)
 import System.Process (readProcess)
 import Prelude
-import Config (Config(..))
-
 
 -- | CLI configuration parser
 configParser :: Parser Config
 configParser =
   Config
     <$> option
-       auto
+      auto
       (long "testnet-magic" <> help "Testnet magic")
     <*> strOption
       (long "own-pub-key-hash" <> help "Own public key hash")
@@ -62,13 +62,6 @@ configParser =
       (long "tx-body-file" <> help "Output TxBody filename" <> showDefault <> value "tx.raw")
     <*> strOption
       (long "tx-file" <> help "Output signed Tx filename" <> showDefault <> value "tx.signed")
-        where
-          tokenParser =
-            eitherReader $ \arg ->
-              case words arg of
-                [amount, filename, tokenname] ->
-                  Right $ Token filename tokenname (read amount) ()
-          args -> Left $ "Invalid number of arguments: " ++ show args
 
 opts :: ParserInfo Config
 opts =
@@ -81,4 +74,3 @@ opts =
 
 parseCommand :: IO Config
 parseCommand = execParser opts
-

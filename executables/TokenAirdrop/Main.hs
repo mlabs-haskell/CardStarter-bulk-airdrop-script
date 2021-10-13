@@ -1,7 +1,9 @@
 module Main where
 
-import FakePAB qualified
+import TokenAirdrop qualified
 import Prelude
 
 main :: IO ()
-main = FakePAB.main
+main = do
+  results <- TokenAirdrop.tokenAirdrop TokenAirdrop.testConfig
+  print results
