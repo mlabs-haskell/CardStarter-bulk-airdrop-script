@@ -1,0 +1,7 @@
+cradle:
+  cabal:
+    - path: "./src"
+      component: "lib:token-airdrop"
+
+    - path: "./executables/TokenAirdrop"
+      component: "exe:token-airdrop"
