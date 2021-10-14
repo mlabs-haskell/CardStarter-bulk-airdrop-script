@@ -1,6 +1,7 @@
 module FakePAB.UtxoParser (
   chainIndexTxOutParser,
   utxoMapParser,
+  assetClassParser,
 ) where
 
 import Control.Applicative ((<|>))

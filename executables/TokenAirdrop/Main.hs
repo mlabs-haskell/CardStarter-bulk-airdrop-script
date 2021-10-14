@@ -1,9 +1,11 @@
 module Main where
 
+import CommandLine qualified
 import TokenAirdrop qualified
 import Prelude
 
 main :: IO ()
 main = do
-  results <- TokenAirdrop.tokenAirdrop TokenAirdrop.defaultConfig
+  config <- CommandLine.execCommand
+  results <- TokenAirdrop.tokenAirdrop config
   print results

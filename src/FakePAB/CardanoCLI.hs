@@ -107,7 +107,7 @@ buildTx config ownAddr tx =
         , mconcat
             [ ["--change-address", unsafeSerialiseAddress config ownAddr]
             , networkOpt config
-            , ["--protocol-params-file", config.protocolParamsFile]
+            , ["--protocol-params-file", Text.pack config.protocolParamsFile]
             , ["--out-file", txToFileName "raw" tx]
             ]
         ]

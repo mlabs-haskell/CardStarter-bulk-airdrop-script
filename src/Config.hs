@@ -1,7 +1,6 @@
 module Config (Config (..), Beneficiary (..)) where
 
 import Cardano.Api (NetworkId)
-import Data.Text (Text)
 import Ledger (Address)
 import Ledger.Value (AssetClass)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
@@ -10,7 +9,7 @@ import Prelude
 data Config = Config
   { network :: !NetworkId
   , -- | Protocol params file location relative to the cardano-cli working directory (needed for the cli)
-    protocolParamsFile :: !Text
+    protocolParamsFile :: !FilePath
   , assetClass :: !AssetClass
   , beneficiariesFile :: !FilePath
   , ownPubKeyHash :: !PubKeyHash

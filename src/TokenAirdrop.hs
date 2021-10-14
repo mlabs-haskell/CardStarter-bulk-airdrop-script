@@ -1,9 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 
-module TokenAirdrop (tokenAirdrop, defaultConfig) where
+module TokenAirdrop (tokenAirdrop) where
 
 import BeneficiariesFile (readBeneficiariesFile)
-import Cardano.Api (NetworkId (Testnet), NetworkMagic (..))
 import Config (Config (..))
 import Data.Text (Text)
 import Data.Void (Void)
@@ -15,22 +14,6 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential))
 import Prelude
-
-defaultConfig :: Config
-defaultConfig =
-  Config
-    { network = Testnet (NetworkMagic 1097911063)
-    , protocolParamsFile = "./config/protocol.json"
-    , ownPubKeyHash = "0f45aaf1b2959db6e5ff94dbb1f823bf257680c3c723ac2d49f97546"
-    , signingKeyFile = "./config/server.skey"
-    , assetClass =
-        Value.assetClass "1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e" "testToken"
-    , beneficiariesFile = "./config/beneficiaries"
-    , beneficiaryPerTx = 200
-    , dryRun = True
-    , minLovelaces = 1379280
-    , fees = 70921796
-    }
 
 tokenAirdrop :: Config -> IO [Either Text ()]
 tokenAirdrop config = do

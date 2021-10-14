@@ -43,8 +43,8 @@ preBalanceTx ::
 preBalanceTx minLovelaces fees utxos changeAddr tx =
   addTxCollaterals utxos tx
     >>= balanceTxIns utxos minLovelaces fees
-    >>= Right . addLovelaces minLovelaces
     >>= balanceNonAdaOuts changeAddr utxos
+    >>= Right . addLovelaces minLovelaces
 
 -- | Getting the necessary utxos to cover the fees for the transaction
 collectTxIns :: Set TxIn -> Map TxOutRef TxOut -> Value -> Either Text (Set TxIn)

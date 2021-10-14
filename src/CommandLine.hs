@@ -1,21 +1,22 @@
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module CommandLine (parseCommand) where
+module CommandLine (execCommand) where
 
+import Cardano.Api (NetworkId (Mainnet, Testnet), NetworkMagic (..))
 import Config (Config (..))
-import Control.Applicative (many, (<**>), (<*>))
-import Data.List (intercalate, nub)
-import Data.List.Split (splitOn)
-import Data.Map (Map)
-import Data.Map qualified as Map
-import Data.Maybe (catMaybes)
+import Control.Applicative ((<**>), (<|>))
+import Data.Attoparsec.Text qualified as Attoparsec
+import Data.Text qualified as Text
+import FakePAB.UtxoParser qualified as UtxoParser
+import Ledger.Value (AssetClass)
 import Options.Applicative (
   Parser,
   ParserInfo,
   auto,
   eitherReader,
   execParser,
+  flag',
   fullDesc,
   header,
   help,
@@ -26,51 +27,116 @@ import Options.Applicative (
   option,
   progDesc,
   showDefault,
-  str,
   strOption,
   switch,
   value,
  )
-import System.Environment (getArgs)
-import System.Process (readProcess)
+import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Prelude
 
 -- | CLI configuration parser
 configParser :: Parser Config
 configParser =
   Config
-    <$> option
-      auto
-      (long "testnet-magic" <> help "Testnet magic")
-    <*> strOption
-      (long "own-pub-key-hash" <> help "Own public key hash")
-    <*> strOption
-      (long "signing-key-file" <> help "Signing key file")
-    <*> strOption
-      (long "beneficiaries-file" <> help "Beneficiary addresses and amounts in file")
-    <*> option
-      auto
-      (long "min-utxo" <> help "Minimum UTXO output")
-    <*> option
-      auto
-      (long "fees" <> help "Transaction fees (used for coin selection)")
-    <*> strOption
-      (long "protocol-params-file" <> help "Protocol parameters file" <> showDefault <> value "protocol.json")
-    <*> switch
-      (long "dry-run" <> help "Build tx body and tx, but don't submit them")
-    <*> strOption
-      (long "tx-body-file" <> help "Output TxBody filename" <> showDefault <> value "tx.raw")
-    <*> strOption
-      (long "tx-file" <> help "Output signed Tx filename" <> showDefault <> value "tx.signed")
+    <$> pNetworkId
+    <*> pProtocolParamsFile
+    <*> pAssetClass
+    <*> pBeneficiariesFile
+    <*> pOwnPubKeyHash
+    <*> pSigningKeyFile
+    <*> pBeneficiaryPerTx
+    <*> pDryRun
+    <*> pMinLovelaces
+    <*> pFees
 
 opts :: ParserInfo Config
 opts =
   info
     (configParser <**> helper)
     ( fullDesc
-        <> progDesc "Quick and dirty tool for handling deployment of plutus contracts. Looks up the necessary utxos, builds the transaction and submits to chain."
-        <> header "plutus-submit - Deployment tool for plutus contracts"
+        <> progDesc "CLI tool to simplity sending native tokens to multiple users"
+        <> header "token-airdrop"
     )
 
-parseCommand :: IO Config
-parseCommand = execParser opts
+pNetworkId :: Parser NetworkId
+pNetworkId =
+  pMainnet <|> fmap Testnet pTestnetMagic
+  where
+    pMainnet :: Parser NetworkId
+    pMainnet =
+      flag'
+        Mainnet
+        ( long "mainnet"
+            <> help "Use the mainnet magic id."
+        )
+
+pTestnetMagic :: Parser NetworkMagic
+pTestnetMagic =
+  NetworkMagic
+    <$> option
+      auto
+      ( long "testnet-magic"
+          <> metavar "NATURAL"
+          <> help "Specify a testnet magic id."
+      )
+pProtocolParamsFile :: Parser FilePath
+pProtocolParamsFile =
+  strOption (long "protocol-params-file" <> help "Protocol parameters file" <> showDefault <> value "./config/protocol.json")
+
+pOwnPubKeyHash :: Parser PubKeyHash
+pOwnPubKeyHash =
+  strOption
+    (long "own-pub-key-hash" <> help "Own public key hash" <> metavar "PUB_KEY_HASH")
+
+pSigningKeyFile :: Parser FilePath
+pSigningKeyFile =
+  strOption
+    ( long "signing-key-file" <> help "Signing key file" <> showDefault
+        <> value "./config/server.skey"
+        <> metavar "FILENAME"
+    )
+
+pAssetClass :: Parser AssetClass
+pAssetClass =
+  option
+    (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
+    (long "asset-class" <> help "Token asset class" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
+
+pBeneficiariesFile :: Parser FilePath
+pBeneficiariesFile =
+  strOption
+    ( long "beneficiaries-file" <> help "Beneficiary addresses and amounts in file" <> showDefault <> value "./config/beneficiaries"
+        <> metavar "FILENAME"
+    )
+
+pBeneficiaryPerTx :: Parser Int
+pBeneficiaryPerTx =
+  option
+    auto
+    ( long "beneficiaries-per-tx" <> help "This controls how many transaction outputs we bach together. In case the tranaction exceeds the size limit, try to change this value"
+        <> metavar "NATURAL"
+    )
+
+pDryRun :: Parser Bool
+pDryRun =
+  switch
+    (long "dry-run" <> help "Build tx body and tx, but don't submit them")
+
+pMinLovelaces :: Parser Integer
+pMinLovelaces =
+  option
+    auto
+    ( long "min-lovelaces" <> help "Minimum lovelace amount per transaction output"
+        <> metavar "NATURAL"
+    )
+
+pFees :: Parser Integer
+pFees =
+  option
+    auto
+    ( long "fees" <> help "Transaction fees (used for coin selection)"
+        <> metavar "NATURAL"
+    )
+
+execCommand :: IO Config
+execCommand = execParser opts

@@ -71,7 +71,10 @@ common common-lang
 
 library
   import:          common-lang
-  exposed-modules: TokenAirdrop
+  exposed-modules:
+    CommandLine
+    TokenAirdrop
+
   other-modules:
     BeneficiariesFile
     Config
