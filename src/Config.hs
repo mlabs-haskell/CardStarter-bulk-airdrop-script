@@ -14,10 +14,7 @@ data Config = Config
   , assetClass :: !AssetClass
   , beneficiariesFile :: !FilePath
   , ownPubKeyHash :: !PubKeyHash
-  , -- | File name where the transaction body will be saved
-    txBodyFile :: !Text
-  , -- | File name where the signed transaction will be saved
-    txFile :: !Text
+  , signingKeyFile :: !FilePath
   , -- | Grouping multiple beneficiaries to a single transaction for optimising fees
     beneficiaryPerTx :: !Int
   , -- | Dry run mode will build the tx, but skip the submit step

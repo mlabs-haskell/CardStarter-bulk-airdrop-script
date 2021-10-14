@@ -34,6 +34,7 @@ import Ledger.Value qualified as Value
 import Plutus.Contract.CardanoAPI (toCardanoAddress)
 import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
 import PlutusTx.Builtins (fromBuiltin)
+import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
 import Prelude
 
@@ -53,30 +54,25 @@ callCommand ShellCommand {cmdName, cmdArgs, cmdOutParser} =
 submitScript :: Config -> UnbalancedTx -> IO (Either Text ())
 submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
   -- Configuration
-  let minLovelaces = 45
-      -- Fees are added by the cli, but we need to include enought tx inputs to cover these fees
-      fees = 70921796
-      serverPkh = config.ownPubKeyHash -- own pub key hash
+  let serverPkh = config.ownPubKeyHash -- own pub key hash
       ownAddr = pubKeyHashAddress serverPkh
-      signingKeyFile = "./alonzo-testnet/addresses/server.skey"
 
   utxos <- utxosAt config ownAddr
 
   let utxoIndex = fmap Tx.toTxOut utxos <> unBalancedTxUtxoIndex
       eitherPreBalancedTx =
-        preBalanceTx minLovelaces fees utxoIndex ownAddr unBalancedTxTx
-
-  print eitherPreBalancedTx
+        preBalanceTx config.minLovelaces config.fees utxoIndex ownAddr unBalancedTxTx
 
   case eitherPreBalancedTx of
     Left errMsg -> error $ Text.unpack errMsg
     Right preparedTx -> do
+      createDirectoryIfMissing False "txs"
       buildTx config ownAddr preparedTx
-      signTx signingKeyFile
+      signTx preparedTx config.signingKeyFile
 
       if config.dryRun
         then pure $ Right ()
-        else submitTx config
+        else submitTx preparedTx config
 
 -- | Getting all available UTXOs at an address (all utxos are assumed to be PublicKeyChainIndexTxOut)
 utxosAt :: Config -> Address -> IO (Map TxOutRef ChainIndexTxOut)
@@ -112,34 +108,34 @@ buildTx config ownAddr tx =
             [ ["--change-address", unsafeSerialiseAddress config ownAddr]
             , networkOpt config
             , ["--protocol-params-file", config.protocolParamsFile]
-            , ["--out-file", "tx.raw"]
+            , ["--out-file", txToFileName "raw" tx]
             ]
         ]
 
 -- Signs and writes a tx (uses the tx body written to disk as input)
-signTx :: Text -> IO ()
-signTx signingKeyFile =
+signTx :: Tx -> FilePath -> IO ()
+signTx tx signingKeyFile =
   callCommand $
     ShellCommand
       "cardano-cli"
       ( mconcat
           [ ["transaction", "sign"]
-          , ["--tx-body-file", "tx.raw"]
-          , ["--signing-key-file", signingKeyFile]
-          , ["--out-file", "tx.signed"]
+          , ["--tx-body-file", txToFileName "raw" tx]
+          , ["--signing-key-file", Text.pack signingKeyFile]
+          , ["--out-file", txToFileName "signed" tx]
           ]
       )
       (const ())
 
 -- Signs and writes a tx (uses the tx body written to disk as input)
-submitTx :: Config -> IO (Either Text ())
-submitTx config =
+submitTx :: Tx -> Config -> IO (Either Text ())
+submitTx tx config =
   callCommand $
     ShellCommand
       "cardano-cli"
       ( mconcat
           [ ["transaction", "submit"]
-          , ["--tx-file", "tx.signed"]
+          , ["--tx-file", txToFileName "signed" tx]
           , networkOpt config
           ]
       )
@@ -166,12 +162,11 @@ txOutOpts config =
   concatMap
     ( \TxOut {txOutAddress, txOutValue} ->
         [ "--tx-out"
-        , quotes $
-            Text.intercalate
-              "+"
-              [ unsafeSerialiseAddress config txOutAddress
-              , valueToCliArg txOutValue
-              ]
+        , Text.intercalate
+            "+"
+            [ unsafeSerialiseAddress config txOutAddress
+            , valueToCliArg txOutValue
+            ]
         ]
     )
 
@@ -198,8 +193,10 @@ valueToCliArg :: Value -> Text
 valueToCliArg val =
   Text.intercalate " + " $ map flatValueToCliArg $ sort $ Value.flattenValue val
 
-quotes :: Text -> Text
-quotes str = "\"" <> str <> "\""
+txToFileName :: Text -> Tx -> Text
+txToFileName ext tx =
+  let txId = encodeByteString $ fromBuiltin $ getTxId $ Tx.txId tx
+   in "txs/tx-" <> txId <> "." <> ext
 
 unsafeSerialiseAddress :: Config -> Address -> Text
 unsafeSerialiseAddress config address =

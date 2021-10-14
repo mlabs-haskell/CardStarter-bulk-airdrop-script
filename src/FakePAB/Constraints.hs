@@ -45,8 +45,9 @@ submitTx config lookups constraints = do
     Right unbalancedTx@UnbalancedTx {unBalancedTxTx = tx} -> do
       logRecipientsUtxos config tx
       result <- submitScript config unbalancedTx
-      -- Wait 20 seconds for the next block
-      threadDelay 20_000
+      -- Wait 40 seconds for the next block
+      putStrLn "Wait 40 seconds for the next block"
+      threadDelay 40_000_000
       logRecipientsUtxos config tx
       pure result
 

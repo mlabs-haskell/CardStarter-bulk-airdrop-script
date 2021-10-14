@@ -141,7 +141,7 @@ balanceNonAdaOuts changeAddr utxos tx =
       nonMintedOutputValue = outputValue `minus` txMint tx
       nonAdaChange = filterNonAda inputValue `minus` filterNonAda nonMintedOutputValue
       outputs =
-        case partition ((/=) changeAddr . Tx.txOutAddress) $ txOutputs tx of
+        case partition ((==) changeAddr . Tx.txOutAddress) $ txOutputs tx of
           ([], txOuts) ->
             TxOut
               { txOutAddress = changeAddr

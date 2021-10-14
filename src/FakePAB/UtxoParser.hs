@@ -3,6 +3,7 @@ module FakePAB.UtxoParser (
   utxoMapParser,
 ) where
 
+import Control.Applicative ((<|>))
 import Control.Monad (mzero, void)
 import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text (
@@ -79,7 +80,7 @@ assetClassParser =
       pure $ Value.assetClass curSymbol tokenName
 
 datumHashNoneParser :: Parser ()
-datumHashNoneParser = "TxOutDatumHashNone" >> pure ()
+datumHashNoneParser = "TxOutDatumHashNone" <|> "TxOutDatumNone" >> pure ()
 
 datumHashParser :: Parser DatumHash
 datumHashParser = do

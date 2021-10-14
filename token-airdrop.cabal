@@ -93,6 +93,7 @@ library
     , cryptonite
     , data-default
     , data-default-class
+    , directory
     , either
     , freer-extras
     , freer-simple

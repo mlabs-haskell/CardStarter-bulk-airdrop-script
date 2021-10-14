@@ -51,5 +51,6 @@ cabal.project.local*
 # Notes
 *.txt
 
-
-beneficiaries
+# Config file
+/config
+/txs
