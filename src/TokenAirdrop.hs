@@ -27,7 +27,7 @@ defaultConfig =
         Value.assetClass "1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e" "testToken"
     , beneficiariesFile = "./config/beneficiaries"
     , beneficiaryPerTx = 200
-    , dryRun = False
+    , dryRun = True
     , minLovelaces = 1379280
     , fees = 70921796
     }
