@@ -16,6 +16,7 @@ usage:
 	@echo "Available commands:"
 	@echo "  hoogle              -- Start local hoogle"
 	@echo "  build               -- Run cabal v2-build"
+	@echo "  run                 -- Run cabal v2-run"
 	@echo "  watch               -- Track files: token-airdrop.cabal, src/* and run 'make build' on change"
 	@echo "  accept_pirs         -- Accept new PIR changes"
 	@echo "  ghci                -- Run cabal v2-repl liquidity-bridge"
@@ -44,6 +45,9 @@ endif
 
 build: requires_nix_shell
 	cabal v2-build $(GHC_FLAGS)
+
+run: requires_nix_shell
+	cabal v2-run $(GHC_FLAGS) token-airdrop
 
 watch: requires_nix_shell
 	while sleep 1; do find src token-airdrop.cabal | entr -cd make build; done
