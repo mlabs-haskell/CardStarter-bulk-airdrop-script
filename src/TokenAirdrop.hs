@@ -9,10 +9,8 @@ import Data.Void (Void)
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx)
 import Ledger qualified
-import Ledger.Address (addressCredential)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Value qualified as Value
-import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential))
 import Prelude
 
 tokenAirdrop :: Config -> IO [Either Text ()]
@@ -26,9 +24,7 @@ tokenAirdrop config = do
             map
               ( \beneficiary ->
                   let val = Value.assetClassValue config.assetClass beneficiary.amount
-                   in case addressCredential beneficiary.address of
-                        PubKeyCredential pkh -> Constraints.mustPayToPubKey pkh val
-                        ScriptCredential _ -> mempty
+                   in Constraints.mustPayToPubKey beneficiary.pubKeyHash val
               )
               beneficiaries
 
