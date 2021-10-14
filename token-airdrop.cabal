@@ -73,6 +73,7 @@ library
   import:          common-lang
   exposed-modules: TokenAirdrop
   other-modules:
+    BeneficiariesFile
     Config
     FakePAB.CardanoCLI
     FakePAB.Constraints

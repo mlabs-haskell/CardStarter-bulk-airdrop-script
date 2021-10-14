@@ -2,6 +2,7 @@ module Config (Config (..), Beneficiary (..)) where
 
 import Cardano.Api (NetworkId)
 import Data.Text (Text)
+import Ledger (Address)
 import Ledger.Value (AssetClass)
 import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Prelude
@@ -11,7 +12,7 @@ data Config = Config
   , -- | Protocol params file location relative to the cardano-cli working directory (needed for the cli)
     protocolParamsFile :: !Text
   , assetClass :: !AssetClass
-  , beneficiaries :: ![Beneficiary]
+  , beneficiariesFile :: !FilePath
   , ownPubKeyHash :: !PubKeyHash
   , -- | File name where the transaction body will be saved
     txBodyFile :: !Text
@@ -28,6 +29,6 @@ data Config = Config
 
 data Beneficiary = Beneficiary
   { amount :: !Integer
-  , pubKeyHash :: !PubKeyHash
+  , address :: !Address
   }
   deriving (Show)

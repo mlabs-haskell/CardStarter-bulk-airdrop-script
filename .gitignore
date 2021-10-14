@@ -51,10 +51,5 @@ cabal.project.local*
 # Notes
 *.txt
 
-# Instance data
-.ethrecorddata-*
-.confighashes
 
-geth-node/chaindata/geth/*
-geth-node/chaindata/history
-*.ipc
+beneficiaries
