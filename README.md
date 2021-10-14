@@ -4,7 +4,7 @@
 
 1. Run cardano-node, and configure cardano-cli (this programs calls the CLI in the background)
 2. Copy the protocol parameters file and the signature key file in the config directory (or change the config)
-3. Change the config to match your needs and compile the program with `make build`
+3. Change the config in the `src/TokenAirdrop.hs` file to match your needs and compile the program with `make build`
 
 ```haskell
 defaultConfig :: Config
