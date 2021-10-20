@@ -1,4 +1,4 @@
-# CardStarter - TokenAirdrop
+# CardStarter Bulk Airdrop Script
 This airdrop utility script is provided on an open-source basis courtesy of CardStarter.
 
 ## Usage
