@@ -54,7 +54,7 @@ opts =
   info
     (configParser <**> helper)
     ( fullDesc
-        <> progDesc "CLI tool to simplity sending native tokens to multiple users"
+        <> progDesc "CLI tool to simplify sending native tokens to multiple users"
         <> header "token-airdrop"
     )
 
