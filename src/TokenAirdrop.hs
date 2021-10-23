@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-
 module TokenAirdrop (tokenAirdrop) where
 
 import BeneficiariesFile (readBeneficiariesFile)
@@ -15,7 +13,7 @@ import Prelude
 
 tokenAirdrop :: Config -> IO [Either Text ()]
 tokenAirdrop config = do
-  beneficiaries <- readBeneficiariesFile config.beneficiariesFile
+  beneficiaries <- readBeneficiariesFile config
   putStrLn $ "Sending tokens to " ++ show (length beneficiaries) ++ " addresses"
 
   let txs =

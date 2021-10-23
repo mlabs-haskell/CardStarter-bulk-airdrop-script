@@ -11,6 +11,7 @@ data Config = Config
     protocolParamsFile :: !FilePath
   , assetClass :: !AssetClass
   , beneficiariesFile :: !FilePath
+  , usePubKeys :: !Bool
   , ownPubKeyHash :: !PubKeyHash
   , signingKeyFile :: !FilePath
   , -- | Grouping multiple beneficiaries to a single transaction for optimising fees

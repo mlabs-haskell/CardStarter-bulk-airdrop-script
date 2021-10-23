@@ -6,7 +6,7 @@ This airdrop utility script is provided on an open-source basis courtesy of Card
 ### Simple step-by-step
 1. Run cardano-node, and configure cardano-cli (this programs calls the CLI in the background)
 2. Copy the protocol parameters file and the signature key file in the config directory (or change the config)
-3. Create a `config/beneficiaries` file with the recipient pub key hashes and the token amounts they receive divided by a space, as defined [here](#beneficiaries-format)
+3. Create a `config/beneficiaries` file with the recipient addresses or pubkeyhashes (see parameters) and the token amounts they receive divided by a space, as defined [here](#beneficiaries-format)
 4. Run the CLI tool using the parameters defined [here](#command-parameters)
   For example:
   ```sh
@@ -37,6 +37,7 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 - `protocol-params-file ARG`: This will default to `./config/protocol.json`
 - `asset-class`: The asset class of the token to be distributed
 - `beneficiaries-file`: The file containig the above beneficiaries format. This will default to `./config/beneficiaries`
+- `use-pub-key-hashes`: Sets the beneficiary file to accept PubKeyHashes over addresses
 - `own-pub-key-hash`: PubKeyHash of the address holding the tokens to be distributed
 - `signing-key-file`: Signing key file of the above PubKeyHash. This will default to `./config/server.skey`
 - `beneficiaryPerTx`: This controls how many transaction outputs we batch together. In case the tranaction exceeds the size limit, try to change this value
@@ -46,12 +47,20 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 
 ### Beneficiaries format
 This file is structured as one receipient per line, with the following format:  
-`address amount`
-For example:
+`address amount`  
+If the `use-pub-key-hashes` flag is set, the addresses become pub key hases
+#### Examples
+Without `use-pub-key-hashes`:
+```
+addr_test1vpzm7yazemjns5plryg9yq9lkv9xzr432e88jsdqprty4fqhcw9d7 1001
+addr_test1vqsk6udkq2a552prwtmpmfs8yqyluxlvgx6zy20tqjsglyctfkjrg 1002
+addr_test1vz0vpcef37gsanrj8mtta9hkhfd3ja5ekq7mdjgays7wzlcwzmvf6 1003
+addr_test1vq85t2h3k22emdh9l72dhv0cywlj2a5qc0rj8tpdf8uh23st77ahh 1004
+```
+With `use-pub-key-hashes`:
 ```
 adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd 1001
 e58973896cb0ae0273296cd407786e543d24a1c9e17931cc246d1bff 1002
 35530c9f7d13efb3153aef891e583a2980a31d27517ebae1e97c7dab 1003
 1c9f9e9d6042266e5978163298d566f98336a308df616bd7285cb592 1004
-9e6a60ed4ec243f8a38b0e1724de6ba15602fa13732019750d90ceb2 1005
 ```

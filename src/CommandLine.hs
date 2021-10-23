@@ -1,5 +1,4 @@
 {-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE NamedFieldPuns #-}
 
 module CommandLine (execCommand) where
 
@@ -42,6 +41,7 @@ configParser =
     <*> pProtocolParamsFile
     <*> pAssetClass
     <*> pBeneficiariesFile
+    <*> pUsePubKeyHashes
     <*> pOwnPubKeyHash
     <*> pSigningKeyFile
     <*> pBeneficiaryPerTx
@@ -108,6 +108,11 @@ pBeneficiariesFile =
     ( long "beneficiaries-file" <> help "Beneficiary addresses and amounts in file" <> showDefault <> value "./config/beneficiaries"
         <> metavar "FILENAME"
     )
+
+pUsePubKeyHashes :: Parser Bool
+pUsePubKeyHashes =
+  switch
+    (long "use-pub-key-hashes" <> help "Makes the beneficiaries file accept PubKeyHashes over addresses")
 
 pBeneficiaryPerTx :: Parser Int
 pBeneficiaryPerTx =
