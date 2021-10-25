@@ -18,6 +18,7 @@ usage:
 	@echo "  build               -- Run cabal v2-build"
 	@echo "  run                 -- Run cabal v2-run"
 	@echo "  watch               -- Track files: token-airdrop.cabal, src/* and run 'make build' on change"
+	@echo "  test   						 -- Run cabal v2-test"
 	@echo "  accept_pirs         -- Accept new PIR changes"
 	@echo "  ghci                -- Run cabal v2-repl liquidity-bridge"
 	@echo "  format              -- Apply source code formatting with fourmolu"
@@ -51,6 +52,9 @@ run: requires_nix_shell
 
 watch: requires_nix_shell
 	while sleep 1; do find src token-airdrop.cabal | entr -cd make build; done
+
+test: requires_nix_shell
+	cabal v2-test
 
 accept_pirs: requires_nix_shell
 	stack build --test $(STACK_FLAGS) $(GHC_FLAGS) --ta '-p MarketAction --accept'
