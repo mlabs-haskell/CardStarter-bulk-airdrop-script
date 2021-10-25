@@ -8,11 +8,11 @@ import Control.Monad ((<=<))
 import FakePAB.Address (deserialiseAddress, serialiseAddress)
 import Ledger qualified
 import Ledger.Address (Address (..))
-import Ledger.Credential (Credential (..))
+import Ledger.Credential (Credential (..), StakingCredential (..))
 import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.QuickCheck (Arbitrary (..), testProperty, (==>))
+import Test.Tasty.QuickCheck (Arbitrary (..), testProperty)
 import Prelude
 
 tests :: TestTree
@@ -22,10 +22,12 @@ tests =
     [ testProperty "Address serialisation roundtrip" $
         \addr conf -> (deserialiseAddress <=< serialiseAddress conf) addr == Right addr
     , testProperty "Address pub key is maintained" $
-        \addr ->
-          let isPubKeyAddr (Address credential _) =
-                case credential of PubKeyCredential _ -> True; ScriptCredential _ -> False
-           in isPubKeyAddr addr ==> fmap Ledger.pubKeyHashAddress (Ledger.toPubKeyHash addr) == Just addr
+        \pubKey conf ->
+          let addr = Ledger.pubKeyAddress pubKey
+              stakingCred = StakingHash $ PubKeyCredential $ Ledger.pubKeyHash pubKey
+              addrWithStaking = addr {addressStakingCredential = Just stakingCred}
+           in Ledger.toPubKeyHash addrWithStaking == Ledger.toPubKeyHash addr
+                && serialiseAddress conf addrWithStaking /= serialiseAddress conf addr
     ]
 
 instance Arbitrary Config where
