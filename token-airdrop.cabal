@@ -78,6 +78,7 @@ library
   other-modules:
     BeneficiariesFile
     Config
+    FakePAB.Address
     FakePAB.CardanoCLI
     FakePAB.Constraints
     FakePAB.PreBalance

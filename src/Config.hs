@@ -1,8 +1,9 @@
 module Config (Config (..), Beneficiary (..)) where
 
 import Cardano.Api (NetworkId)
+import Ledger.Address (Address)
+import Ledger.Crypto (PubKeyHash)
 import Ledger.Value (AssetClass)
-import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Prelude
 
 data Config = Config
@@ -25,6 +26,6 @@ data Config = Config
 
 data Beneficiary = Beneficiary
   { amount :: !Integer
-  , pubKeyHash :: !PubKeyHash
+  , address :: !Address
   }
   deriving (Show)

@@ -20,9 +20,9 @@ tokenAirdrop config = do
         map mconcat $
           group config.beneficiaryPerTx $
             map
-              ( \beneficiary ->
+              ( \(pkh, beneficiary) ->
                   let val = Value.assetClassValue config.assetClass beneficiary.amount
-                   in Constraints.mustPayToPubKey beneficiary.pubKeyHash val
+                   in Constraints.mustPayToPubKey pkh val
               )
               beneficiaries
 
