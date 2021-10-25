@@ -20,7 +20,7 @@ import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.PreBalance (preBalanceTx)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger.Ada qualified as Ada
-import Ledger.Address (Address (..), pubKeyHashAddress)
+import Ledger.Address (Address (..))
 import Ledger.Constraints.OffChain (UnbalancedTx (..))
 import Ledger.Tx (ChainIndexTxOut, Tx (..), TxIn (..), TxOut (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
@@ -49,8 +49,7 @@ callCommand ShellCommand {cmdName, cmdArgs, cmdOutParser} =
 submitScript :: Config -> UnbalancedTx -> IO (Either Text ())
 submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
   -- Configuration
-  let serverPkh = config.ownPubKeyHash -- own pub key hash
-      ownAddr = pubKeyHashAddress serverPkh
+  let ownAddr = config.ownAddress
 
   utxos <- utxosAt config ownAddr
 

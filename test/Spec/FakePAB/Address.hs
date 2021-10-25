@@ -40,7 +40,7 @@ instance Arbitrary Config where
         , assetClass = Value.assetClass "adc123" "testtoken"
         , beneficiariesFile = "./beneficiaries"
         , usePubKeys = True
-        , ownPubKeyHash = "aabb1122"
+        , ownAddress = Ledger.pubKeyHashAddress "aabb1122"
         , signingKeyFile = "./own.skey"
         , beneficiaryPerTx = 100
         , dryRun = True

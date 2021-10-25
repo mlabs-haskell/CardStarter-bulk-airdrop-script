@@ -2,7 +2,6 @@ module Config (Config (..), Beneficiary (..)) where
 
 import Cardano.Api (NetworkId)
 import Ledger.Address (Address)
-import Ledger.Crypto (PubKeyHash)
 import Ledger.Value (AssetClass)
 import Prelude
 
@@ -13,7 +12,7 @@ data Config = Config
   , assetClass :: !AssetClass
   , beneficiariesFile :: !FilePath
   , usePubKeys :: !Bool
-  , ownPubKeyHash :: !PubKeyHash
+  , ownAddress :: !Address
   , signingKeyFile :: !FilePath
   , -- | Grouping multiple beneficiaries to a single transaction for optimising fees
     beneficiaryPerTx :: !Int

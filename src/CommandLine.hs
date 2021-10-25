@@ -6,8 +6,13 @@ import Cardano.Api (NetworkId (Mainnet, Testnet), NetworkMagic (..))
 import Config (Config (..))
 import Control.Applicative ((<**>), (<|>))
 import Data.Attoparsec.Text qualified as Attoparsec
+import Data.Either.Combinators (mapLeft)
 import Data.Text qualified as Text
+import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
+import Ledger qualified
+import Ledger.Address (Address)
+import Ledger.Crypto (PubKeyHash)
 import Ledger.Value (AssetClass)
 import Options.Applicative (
   Parser,
@@ -30,7 +35,6 @@ import Options.Applicative (
   switch,
   value,
  )
-import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Prelude
 
 -- | CLI configuration parser
@@ -42,7 +46,7 @@ configParser =
     <*> pAssetClass
     <*> pBeneficiariesFile
     <*> pUsePubKeyHashes
-    <*> pOwnPubKeyHash
+    <*> pOwnAddressOrPubKeyHash
     <*> pSigningKeyFile
     <*> pBeneficiaryPerTx
     <*> pDryRun
@@ -82,6 +86,16 @@ pTestnetMagic =
 pProtocolParamsFile :: Parser FilePath
 pProtocolParamsFile =
   strOption (long "protocol-params-file" <> help "Protocol parameters file" <> showDefault <> value "./config/protocol.json")
+
+pOwnAddressOrPubKeyHash :: Parser Address
+pOwnAddressOrPubKeyHash =
+  pOwnAddress <|> fmap Ledger.pubKeyHashAddress pOwnPubKeyHash
+
+pOwnAddress :: Parser Address
+pOwnAddress =
+  option
+    (eitherReader (mapLeft Text.unpack . deserialiseAddress . Text.pack))
+    (long "own-address" <> help "Own address" <> metavar "ADDRESS")
 
 pOwnPubKeyHash :: Parser PubKeyHash
 pOwnPubKeyHash =

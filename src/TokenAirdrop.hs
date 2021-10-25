@@ -6,7 +6,6 @@ import Data.Text (Text)
 import Data.Void (Void)
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx)
-import Ledger qualified
 import Ledger.Constraints qualified as Constraints
 import Ledger.Value qualified as Value
 import Prelude
@@ -28,7 +27,7 @@ tokenAirdrop config = do
 
   mapM
     ( \tx -> do
-        utxos <- utxosAt config $ Ledger.pubKeyHashAddress config.ownPubKeyHash
+        utxos <- utxosAt config $ config.ownAddress
         let lookups = Constraints.unspentOutputs utxos
 
         submitTx @Void config lookups tx
