@@ -137,7 +137,9 @@ test-suite token-airdrop-test
     , plutus-ledger-api
     , plutus-pab
     , tasty
+    , tasty-hunit
     , tasty-quickcheck
+    , text
     , token-airdrop
 
   hs-source-dirs: test
