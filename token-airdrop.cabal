@@ -73,11 +73,12 @@ library
   import:          common-lang
   exposed-modules:
     CommandLine
+    Config
+    FakePAB.Address
     TokenAirdrop
 
   other-modules:
     BeneficiariesFile
-    Config
     FakePAB.CardanoCLI
     FakePAB.Constraints
     FakePAB.PreBalance
@@ -124,8 +125,24 @@ library
 
   hs-source-dirs:  src
 
--- Executables
+test-suite token-airdrop-test
+  import:         common-lang
+  type:           exitcode-stdio-1.0
+  main-is:        Spec.hs
+  other-modules:  Spec.FakePAB.Address
+  ghc-options:    -fplugin-opt PlutusTx.Plugin:defer-errors
+  build-depends:
+    , cardano-api
+    , plutus-ledger
+    , plutus-ledger-api
+    , plutus-pab
+    , tasty
+    , tasty-hunit
+    , tasty-quickcheck
+    , text
+    , token-airdrop
 
+  hs-source-dirs: test
 
 executable token-airdrop
   import:         common-lang

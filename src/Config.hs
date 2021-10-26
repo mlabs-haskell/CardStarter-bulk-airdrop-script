@@ -1,8 +1,8 @@
-module Config (Config (..), Beneficiary (..)) where
+module Config (Config (..)) where
 
 import Cardano.Api (NetworkId)
+import Ledger.Address (Address)
 import Ledger.Value (AssetClass)
-import Plutus.V1.Ledger.Crypto (PubKeyHash)
 import Prelude
 
 data Config = Config
@@ -12,7 +12,7 @@ data Config = Config
   , assetClass :: !AssetClass
   , beneficiariesFile :: !FilePath
   , usePubKeys :: !Bool
-  , ownPubKeyHash :: !PubKeyHash
+  , ownAddress :: !Address
   , signingKeyFile :: !FilePath
   , -- | Grouping multiple beneficiaries to a single transaction for optimising fees
     beneficiaryPerTx :: !Int
@@ -20,11 +20,5 @@ data Config = Config
     dryRun :: !Bool
   , minLovelaces :: Integer
   , fees :: Integer
-  }
-  deriving (Show)
-
-data Beneficiary = Beneficiary
-  { amount :: !Integer
-  , pubKeyHash :: !PubKeyHash
   }
   deriving (Show)

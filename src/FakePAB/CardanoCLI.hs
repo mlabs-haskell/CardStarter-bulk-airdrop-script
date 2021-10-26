@@ -1,13 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module FakePAB.CardanoCLI (
-  submitTx,
-  unsafeSerialiseAddress,
-  utxosAt,
-  submitScript,
-) where
+module FakePAB.CardanoCLI (submitTx, utxosAt, submitScript) where
 
-import Cardano.Api.Shelley (NetworkId (Mainnet, Testnet), NetworkMagic (..), serialiseAddress)
+import Cardano.Api.Shelley (NetworkId (Mainnet, Testnet), NetworkMagic (..))
 import Config (Config (..))
 import Data.Aeson.Extras (encodeByteString)
 import Data.Attoparsec.Text (parseOnly)
@@ -21,17 +16,17 @@ import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
+import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.PreBalance (preBalanceTx)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger.Ada qualified as Ada
-import Ledger.Address (Address (..), pubKeyHashAddress)
+import Ledger.Address (Address (..))
 import Ledger.Constraints.OffChain (UnbalancedTx (..))
 import Ledger.Tx (ChainIndexTxOut, Tx (..), TxIn (..), TxOut (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
 import Ledger.TxId (TxId (..))
 import Ledger.Value (Value)
 import Ledger.Value qualified as Value
-import Plutus.Contract.CardanoAPI (toCardanoAddress)
 import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
 import PlutusTx.Builtins (fromBuiltin)
 import System.Directory (createDirectoryIfMissing)
@@ -54,8 +49,7 @@ callCommand ShellCommand {cmdName, cmdArgs, cmdOutParser} =
 submitScript :: Config -> UnbalancedTx -> IO (Either Text ())
 submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
   -- Configuration
-  let serverPkh = config.ownPubKeyHash -- own pub key hash
-      ownAddr = pubKeyHashAddress serverPkh
+  let ownAddr = config.ownAddress
 
   utxos <- utxosAt config ownAddr
 
@@ -197,12 +191,6 @@ txToFileName :: Text -> Tx -> Text
 txToFileName ext tx =
   let txId = encodeByteString $ fromBuiltin $ getTxId $ Tx.txId tx
    in "txs/tx-" <> txId <> "." <> ext
-
-unsafeSerialiseAddress :: Config -> Address -> Text
-unsafeSerialiseAddress config address =
-  case serialiseAddress <$> toCardanoAddress config.network address of
-    Right a -> a
-    Left _ -> error "Couldn't create address"
 
 showText :: Show a => a -> Text
 showText = Text.pack . show

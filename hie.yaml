@@ -5,3 +5,6 @@ cradle:
 
     - path: "./executables/TokenAirdrop"
       component: "exe:token-airdrop"
+
+    - path: "./test"
+      component: "test:token-airdrop-test"
