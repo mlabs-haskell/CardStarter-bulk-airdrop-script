@@ -1,16 +1,18 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module FakePAB.Constraints (submitTx) where
+module FakePAB.Constraints (submitTx, waitNSlots) where
 
 import Config (Config)
 import Control.Concurrent (threadDelay)
 import Control.Lens ((^.))
+import Control.Monad (unless)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import FakePAB.CardanoCLI (
+  queryTip,
   submitScript,
   unsafeSerialiseAddress,
   utxosAt,
@@ -46,10 +48,21 @@ submitTx config lookups constraints = do
       logRecipientsUtxos config tx
       result <- submitScript config unbalancedTx
       -- Wait 40 seconds for the next block
-      putStrLn "Wait 40 seconds for the next block"
-      threadDelay 40_000_000
+      waitNSlots config 1
       logRecipientsUtxos config tx
       pure result
+
+waitNSlots :: Config -> Integer -> IO ()
+waitNSlots config n = do
+  tip <- queryTip config
+  print tip
+  waitNSlots' tip.slot
+  where
+    waitNSlots' refSlot = do
+      threadDelay 10_000_000
+      tip' <- queryTip config
+      print tip'
+      unless (tip'.slot > refSlot + n) $ waitNSlots' refSlot
 
 -- | Prints all utxos for all the recipients of a transaction
 logRecipientsUtxos :: Config -> Tx -> IO ()

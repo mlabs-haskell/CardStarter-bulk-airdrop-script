@@ -1,7 +1,10 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module FakePAB.CardanoCLI (
   submitTx,
+  Tip (..),
+  queryTip,
   unsafeSerialiseAddress,
   utxosAt,
   submitScript,
@@ -9,13 +12,15 @@ module FakePAB.CardanoCLI (
 
 import Cardano.Api.Shelley (NetworkId (Mainnet, Testnet), NetworkMagic (..), serialiseAddress)
 import Config (Config (..))
+import Data.Aeson qualified as JSON
 import Data.Aeson.Extras (encodeByteString)
 import Data.Attoparsec.Text (parseOnly)
+import Data.ByteString.Lazy.Char8 qualified as Char8
 import Data.Either.Combinators (rightToMaybe)
 import Data.List (sort)
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
@@ -23,6 +28,7 @@ import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import FakePAB.PreBalance (preBalanceTx)
 import FakePAB.UtxoParser qualified as UtxoParser
+import GHC.Generics (Generic)
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address (..), pubKeyHashAddress)
 import Ledger.Constraints.OffChain (UnbalancedTx (..))
@@ -73,6 +79,26 @@ submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
       if config.dryRun
         then pure $ Right ()
         else submitTx preparedTx config
+
+data Tip = Tip
+  { epoch :: Integer
+  , hash :: Text
+  , slot :: Integer
+  , block :: Integer
+  , era :: Text
+  , syncProgress :: Text
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (JSON.FromJSON)
+
+queryTip :: Config -> IO Tip
+queryTip config =
+  callCommand
+    ShellCommand
+      { cmdName = "cardano-cli"
+      , cmdArgs = mconcat [["query", "tip"], networkOpt config]
+      , cmdOutParser = fromMaybe (error "Couldn't parse chain tip") . JSON.decode . Char8.pack
+      }
 
 -- | Getting all available UTXOs at an address (all utxos are assumed to be PublicKeyChainIndexTxOut)
 utxosAt :: Config -> Address -> IO (Map TxOutRef ChainIndexTxOut)
