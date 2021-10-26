@@ -1,4 +1,4 @@
-module Config (Config (..), Beneficiary (..)) where
+module Config (Config (..)) where
 
 import Cardano.Api (NetworkId)
 import Ledger.Address (Address)
@@ -20,11 +20,5 @@ data Config = Config
     dryRun :: !Bool
   , minLovelaces :: Integer
   , fees :: Integer
-  }
-  deriving (Show)
-
-data Beneficiary = Beneficiary
-  { amount :: !Integer
-  , address :: !Address
   }
   deriving (Show)

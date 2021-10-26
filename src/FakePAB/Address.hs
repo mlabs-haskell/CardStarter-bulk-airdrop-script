@@ -1,4 +1,7 @@
 module FakePAB.Address (
+  toPubKeyAddress,
+  fromPubKeyAddress,
+  PubKeyAddress,
   unsafeSerialiseAddress,
   unsafeDeserialiseAddress,
   serialiseAddress,
@@ -11,7 +14,9 @@ import Config (Config)
 import Data.Either.Combinators (mapLeft, maybeToRight)
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Ledger.Address (Address)
+import Ledger.Address (Address (..))
+import Ledger.Credential (Credential (..), StakingCredential)
+import Ledger.Crypto (PubKeyHash)
 import Plutus.Contract.CardanoAPI (fromCardanoAddress, toCardanoAddress)
 import Prelude
 
@@ -39,3 +44,20 @@ deserialiseAddress addr = do
 unsafeDeserialiseAddress :: Text -> Address
 unsafeDeserialiseAddress address =
   either (error . Text.unpack) id $ deserialiseAddress address
+
+-- | PukKeyCredential only address type to prevent validating addresses after parsing
+data PubKeyAddress = PubKeyAddress
+  { pkaPubKeyHash :: PubKeyHash
+  , pkaStakingCredential :: Maybe StakingCredential
+  }
+  deriving stock (Show)
+
+toPubKeyAddress :: Address -> Maybe PubKeyAddress
+toPubKeyAddress (Address cred stakingCred) =
+  case cred of
+    PubKeyCredential pkh -> Just $ PubKeyAddress pkh stakingCred
+    ScriptCredential _ -> Nothing
+
+fromPubKeyAddress :: PubKeyAddress -> Address
+fromPubKeyAddress (PubKeyAddress pkh stakingCred) =
+  Address (PubKeyCredential pkh) stakingCred
