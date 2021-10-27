@@ -151,7 +151,9 @@ balanceNonAdaOuts changeAddr utxos tx =
             txOuts
           (txOut@TxOut {txOutValue = v} : txOuts, txOuts') ->
             txOut {txOutValue = v <> nonAdaChange} : (txOuts <> txOuts')
-   in Right $ tx {txOutputs = outputs}
+   in if not (Value.isZero nonAdaChange)
+        then Right $ tx {txOutputs = outputs}
+        else Right tx
 
 showText :: Show a => a -> Text
 showText = Text.pack . show
