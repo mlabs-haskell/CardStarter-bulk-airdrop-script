@@ -11,7 +11,6 @@ import Ledger qualified
 import Ledger.Address (Address (..))
 import Ledger.Credential (Credential (..), StakingCredential (..))
 import Ledger.Crypto (PubKey)
-import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
@@ -71,7 +70,6 @@ defaultConfig =
   Config
     { network = Testnet (NetworkMagic 100)
     , protocolParamsFile = "./protocol.json"
-    , assetClass = Value.assetClass "adc123" "testtoken"
     , beneficiariesFile = "./beneficiaries"
     , usePubKeys = True
     , ownAddress = Ledger.pubKeyHashAddress "aabb1122"

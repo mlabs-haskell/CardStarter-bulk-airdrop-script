@@ -2,14 +2,12 @@ module Config (Config (..)) where
 
 import Cardano.Api (NetworkId)
 import Ledger.Address (Address)
-import Ledger.Value (AssetClass)
 import Prelude
 
 data Config = Config
   { network :: !NetworkId
   , -- | Protocol params file location relative to the cardano-cli working directory (needed for the cli)
     protocolParamsFile :: !FilePath
-  , assetClass :: !AssetClass
   , beneficiariesFile :: !FilePath
   , usePubKeys :: !Bool
   , ownAddress :: !Address

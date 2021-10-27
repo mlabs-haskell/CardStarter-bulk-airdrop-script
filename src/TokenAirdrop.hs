@@ -20,7 +20,7 @@ tokenAirdrop config = do
           group config.beneficiaryPerTx $
             map
               ( \beneficiary ->
-                  let val = Value.assetClassValue config.assetClass beneficiary.amount
+                  let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
                    in Constraints.mustPayToPubKey beneficiary.address.pkaPubKeyHash val
               )
               beneficiaries

@@ -5,15 +5,12 @@ module CommandLine (execCommand) where
 import Cardano.Api (NetworkId (Mainnet, Testnet), NetworkMagic (..))
 import Config (Config (..))
 import Control.Applicative ((<**>), (<|>))
-import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
 import Data.Text qualified as Text
 import FakePAB.Address (deserialiseAddress)
-import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified
 import Ledger.Address (Address)
 import Ledger.Crypto (PubKeyHash)
-import Ledger.Value (AssetClass)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -43,7 +40,6 @@ configParser =
   Config
     <$> pNetworkId
     <*> pProtocolParamsFile
-    <*> pAssetClass
     <*> pBeneficiariesFile
     <*> pUsePubKeyHashes
     <*> pOwnAddressOrPubKeyHash
@@ -109,12 +105,6 @@ pSigningKeyFile =
         <> value "./config/server.skey"
         <> metavar "FILENAME"
     )
-
-pAssetClass :: Parser AssetClass
-pAssetClass =
-  option
-    (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
-    (long "asset-class" <> help "Token asset class" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
 
 pBeneficiariesFile :: Parser FilePath
 pBeneficiariesFile =
