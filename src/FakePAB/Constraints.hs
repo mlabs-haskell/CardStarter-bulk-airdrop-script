@@ -44,6 +44,8 @@ submitTx config lookups constraints = do
       logRecipientsUtxos config tx
       result <- submitScript config unbalancedTx
       -- Wait 40 seconds for the next block
+
+      putStrLn "Tx submitted, waiting for next block..."
       waitNSlots config 1
       logRecipientsUtxos config tx
       pure result
@@ -54,13 +56,11 @@ submitTx config lookups constraints = do
 waitNSlots :: Config -> Integer -> IO ()
 waitNSlots config n = do
   tip <- queryTip config
-  print tip
   waitNSlots' tip.slot
   where
     waitNSlots' refSlot = do
       threadDelay 10_000_000
       tip' <- queryTip config
-      print tip'
       unless (tip'.slot > refSlot + n) $ waitNSlots' refSlot
 
 -- | Prints all utxos for all the recipients of a transaction
