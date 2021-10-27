@@ -3,9 +3,8 @@ on:
     paths:
       - '**.hs'
       - '**.nix'
-      - '**.ts'
       - 'nix/sources.json'
-      - 'liquidity-bridge.cabal'
+      - 'token-airdrop.cabal'
     branches:
       - master
       - staging
@@ -13,9 +12,8 @@ on:
     paths:
       - '**.hs'
       - '**.nix'
-      - '**.ts'
       - 'nix/sources.json'
-      - 'liquidity-bridge.cabal'
+      - 'token-airdrop.cabal'
 jobs:
   check-formatting:
     runs-on: ubuntu-latest
@@ -52,32 +50,6 @@ jobs:
 
       - run: ~/.local/bin/hlint $(git ls-tree -r HEAD --full-tree --name-only | grep -E '.*\.hs')
         name: Lint
-  tslint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: cachix/install-nix-action@v13
-        name: Set up nix cache
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
-          extra_nix_config: |
-            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-            substituters = https://cache.nixos.org/
-      - uses: cachix/cachix-action@v10
-        with:
-          name: mlabs
-          authToken: '${{ secrets.CACHIXKEY }}'
-      - name: Cache cabal folder
-        id: cabal
-        uses: actions/cache@v2.1.4
-        with:
-          path: |
-            ~/.cabal/packages
-            ~/.cabal/store
-            dist-newstyle
-          key: ${{ runner.os }}-cabal
-      - name: Run the TS linter
-        run: nix-build ./nix/tslint.nix
   build:
     runs-on: ubuntu-latest
     steps:

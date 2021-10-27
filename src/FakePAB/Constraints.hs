@@ -11,12 +11,8 @@ import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
-import FakePAB.CardanoCLI (
-  queryTip,
-  submitScript,
-  unsafeSerialiseAddress,
-  utxosAt,
- )
+import FakePAB.Address (unsafeSerialiseAddress)
+import FakePAB.CardanoCLI (queryTip, submitScript, utxosAt)
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address)
 import Ledger.Constraints (ScriptLookups (..))
