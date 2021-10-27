@@ -91,6 +91,7 @@ data Tip = Tip
   deriving stock (Show, Generic)
   deriving anyclass (JSON.FromJSON)
 
+-- | Getting information of the latest block
 queryTip :: Config -> IO Tip
 queryTip config =
   callCommand

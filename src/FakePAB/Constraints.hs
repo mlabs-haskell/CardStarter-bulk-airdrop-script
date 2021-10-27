@@ -52,6 +52,9 @@ submitTx config lookups constraints = do
       logRecipientsUtxos config tx
       pure result
 
+{- | Wait for at least n slots. The slot number only changes when a new block is appended to the chain
+ so it waits for at least one block
+-}
 waitNSlots :: Config -> Integer -> IO ()
 waitNSlots config n = do
   tip <- queryTip config
