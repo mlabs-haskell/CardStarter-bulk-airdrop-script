@@ -16,6 +16,7 @@ This airdrop utility script is provided on an open-source basis courtesy of Card
 cabal run token-airdrop -- --testnet-magic 1097911063 \
   --own-pub-key-hash 0f45aaf1b2959db6e5ff94dbb1f823bf257680c3c723ac2d49f97546 \
   --asset-class 1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken \
+  --drop-amount 4
   --beneficiaries-per-tx 200 \
   --min-lovelaces 1379280 \
   --fees 70921796 \
@@ -27,14 +28,13 @@ cabal run token-airdrop -- --testnet-magic 1097911063 \
 ```
 Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
                      [--protocol-params-file ARG]
-                     --asset-class CURRENCY_SYMBOL.TOKEN_NAME
-                     [--beneficiaries-file FILENAME]
-                     --own-pub-key-hash PUB_KEY_HASH
+                     [--beneficiaries-file FILENAME] [--use-pub-key-hashes]
+                     (--own-address ADDRESS | --own-pub-key-hash PUB_KEY_HASH)
                      [--signing-key-file FILENAME]
-                     --beneficiaries-per-tx NATURAL
-                     [--dry-run]
-                     --min-lovelaces NATURAL
-                     --fees NATURAL
+                     [--asset-class CURRENCY_SYMBOL.TOKEN_NAME]
+                     [--drop-amount NATURAL] --beneficiaries-per-tx NATURAL
+                     [--dry-run] --min-lovelaces NATURAL --fees NATURAL
+  CLI tool to simplify sending native tokens to multiple users
 ```
 
 - `mainnet` OR `testnet-magic NATURAL`: This should match whichever node you have set up
@@ -43,6 +43,7 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 - `use-pub-key-hashes`: Sets the beneficiary file to accept PubKeyHashes over addresses
 - `own-pub-key-hash`: PubKeyHash of the address holding the tokens to be distributed
 - `signing-key-file`: Signing key file of the above PubKeyHash. This will default to `./config/server.skey`
+- `asset-class`: Token asset class (overrides beneficiaries file config)
 - `beneficiaryPerTx`: This controls how many transaction outputs we batch together. In case the tranaction exceeds the size limit, try to change this value
 - `dryRun`: Builds transactions without actually submitting them on chain
 - `min-lovelaces`: Minimun lovelace amount for each utxo (change this it you get a Minimum required UTxO error)
@@ -51,8 +52,10 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 ### Beneficiaries format
 
 This file is structured as one receipient per line, with the following format:  
-`address amount currencySymbol.tokenName`  
-If the `use-pub-key-hashes` flag is set, the addresses become pub key hases
+`address amount currencySymbol.tokenName`
+
+- If the `use-pub-key-hashes` flag is set, the addresses become pub key hashes
+- If the `asset-class` and/or `drop-amoun` option is present, the values specified on the cli take precedence over the ones in the file (in this case these fields are optional, however the )
 
 #### Examples
 
@@ -73,4 +76,3 @@ e58973896cb0ae0273296cd407786e543d24a1c9e17931cc246d1bff 1002 1d6445ddeda578117f
 35530c9f7d13efb3153aef891e583a2980a31d27517ebae1e97c7dab 1003 3ccd653511eec65bbd30c3489f53471b017c829bd97d3a2ae81fb818.testToken
 1c9f9e9d6042266e5978163298d566f98336a308df616bd7285cb592 1004 3ccd653511eec65bbd30c3489f53471b017c829bd97d3a2ae81fb818.testToken
 ```
-
