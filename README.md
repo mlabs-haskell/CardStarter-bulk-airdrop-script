@@ -44,6 +44,7 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 - `own-pub-key-hash`: PubKeyHash of the address holding the tokens to be distributed
 - `signing-key-file`: Signing key file of the above PubKeyHash. This will default to `./config/server.skey`
 - `asset-class`: Token asset class (overrides beneficiaries file config)
+- `drop-amount`: Amount of tokens to send to each beneficiary (overrides beneficiaries file config)
 - `beneficiaryPerTx`: This controls how many transaction outputs we batch together. In case the tranaction exceeds the size limit, try to change this value
 - `dryRun`: Builds transactions without actually submitting them on chain
 - `min-lovelaces`: Minimun lovelace amount for each utxo (change this it you get a Minimum required UTxO error)
