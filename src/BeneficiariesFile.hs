@@ -1,10 +1,10 @@
 module BeneficiariesFile (readBeneficiariesFile, Beneficiary) where
 
 import Config (Config (..))
-import Control.Monad ((<=<))
+import Control.Applicative ((<|>))
 import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
-import Data.Either.Combinators (mapLeft, maybeToRight)
+import Data.Either.Combinators (mapLeft, maybeToRight, rightToMaybe)
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
@@ -14,12 +14,13 @@ import Ledger qualified
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Value (AssetClass)
 import PlutusTx.Builtins (toBuiltin)
-import Text.Read (readEither)
+import Safe (atMay)
+import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, words)
 
 data Beneficiary = Beneficiary
-  { amount :: !Integer
-  , address :: !PubKeyAddress
+  { address :: !PubKeyAddress
+  , amount :: !Integer
   , assetClass :: !AssetClass
   }
   deriving stock (Show)
@@ -34,20 +35,34 @@ parseBeneficiary :: Config -> Text -> Either Text Beneficiary
 parseBeneficiary conf = toBeneficiary . words
   where
     toBeneficiary :: [Text] -> Either Text Beneficiary
-    toBeneficiary [addr, amt, asset] =
+    toBeneficiary strs =
       Beneficiary
-        <$> mapLeft (const "Invalid amount") (readEither (Text.unpack amt))
-        <*> parseAddress conf.usePubKeys addr
-        <*> mapLeft
-          (const "Invalid asset class")
-          (Attoparsec.parseOnly UtxoParser.assetClassParser asset)
-    toBeneficiary _ = Left "Invalid format"
+        <$> parseAddress conf.usePubKeys (strs `atMay` 0)
+        <*> maybeToRight "Invalid amount" (parseAmt conf.dropAmount (strs `atMay` 1))
+        <*> maybeToRight "Invalid asset class" (parseAsset conf.assetClass (strs `atMay` 2))
 
-parseAddress :: Bool -> Text -> Either Text PubKeyAddress
-parseAddress isPubKey =
+parseAmt :: Maybe Integer -> Maybe Text -> Maybe Integer
+parseAmt cliArg rawStr =
+  cliArg <|> (readMaybe . Text.unpack =<< rawStr)
+
+parseAsset :: Maybe AssetClass -> Maybe Text -> Maybe AssetClass
+parseAsset cliArg rawStr =
+  cliArg <|> (parseAsset' =<< rawStr)
+  where
+    parseAsset' =
+      rightToMaybe . Attoparsec.parseOnly UtxoParser.assetClassParser
+
+parseAddress :: Bool -> Maybe Text -> Either Text PubKeyAddress
+parseAddress isPubKey maybeAddrStr =
   if isPubKey
-    then toPubKeyAddress' . Ledger.pubKeyHashAddress <=< parsePubKeyHash'
-    else toPubKeyAddress' <=< deserialiseAddress
+    then do
+      addrStr <- maybeToRight "Invalid address" maybeAddrStr
+      pkh <- parsePubKeyHash' addrStr
+      toPubKeyAddress' $ Ledger.pubKeyHashAddress pkh
+    else do
+      addrStr <- maybeToRight "Invalid address" maybeAddrStr
+      addr <- deserialiseAddress addrStr
+      toPubKeyAddress' addr
   where
     toPubKeyAddress' = maybeToRight "Script addresses are not allowed" . toPubKeyAddress
 

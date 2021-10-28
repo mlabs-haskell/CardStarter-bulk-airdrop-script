@@ -11,6 +11,7 @@ import Ledger qualified
 import Ledger.Address (Address (..))
 import Ledger.Credential (Credential (..), StakingCredential (..))
 import Ledger.Crypto (PubKey)
+import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
@@ -74,6 +75,8 @@ defaultConfig =
     , usePubKeys = True
     , ownAddress = Ledger.pubKeyHashAddress "aabb1122"
     , signingKeyFile = "./own.skey"
+    , assetClass = Just $ Value.assetClass "adc123" "testtoken"
+    , dropAmount = Just 4
     , beneficiaryPerTx = 100
     , dryRun = True
     , minLovelaces = 100

@@ -25,6 +25,7 @@ tokenAirdrop config = do
               )
               beneficiaries
 
+  print beneficiaries
   mapM
     ( \tx -> do
         utxos <- utxosAt config $ config.ownAddress

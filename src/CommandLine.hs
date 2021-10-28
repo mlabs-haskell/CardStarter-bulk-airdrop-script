@@ -5,12 +5,15 @@ module CommandLine (execCommand) where
 import Cardano.Api (NetworkId (Mainnet, Testnet), NetworkMagic (..))
 import Config (Config (..))
 import Control.Applicative ((<**>), (<|>))
+import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
 import Data.Text qualified as Text
 import FakePAB.Address (deserialiseAddress)
+import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified
 import Ledger.Address (Address)
 import Ledger.Crypto (PubKeyHash)
+import Ledger.Value (AssetClass)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -44,6 +47,8 @@ configParser =
     <*> pUsePubKeyHashes
     <*> pOwnAddressOrPubKeyHash
     <*> pSigningKeyFile
+    <*> pMaybe pAssetClass
+    <*> pMaybe pDropAmount
     <*> pBeneficiaryPerTx
     <*> pDryRun
     <*> pMinLovelaces
@@ -106,6 +111,18 @@ pSigningKeyFile =
         <> metavar "FILENAME"
     )
 
+pAssetClass :: Parser AssetClass
+pAssetClass =
+  option
+    (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
+    (long "asset-class" <> help "Token asset class (overrides beneficiaries file config)" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
+
+pDropAmount :: Parser Integer
+pDropAmount =
+  option
+    auto
+    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary (overrides beneficiaries file config)" <> metavar "NATURAL")
+
 pBeneficiariesFile :: Parser FilePath
 pBeneficiariesFile =
   strOption
@@ -146,6 +163,10 @@ pFees =
     ( long "fees" <> help "Transaction fees (used for coin selection)"
         <> metavar "NATURAL"
     )
+
+pMaybe :: Parser a -> Parser (Maybe a)
+pMaybe parser =
+  fmap Just parser <|> pure Nothing
 
 execCommand :: IO Config
 execCommand = execParser opts
