@@ -208,7 +208,7 @@ flatValueToCliArg :: (CurrencySymbol, TokenName, Integer) -> Text
 flatValueToCliArg (curSymbol, name, amount)
   | curSymbol == Ada.adaSymbol && name == Ada.adaToken = amountStr
   | otherwise =
-    amountStr <> " " <> curSymbolStr <> "." <> tokenNameStr
+    amountStr <> " " <> curSymbolStr <> if Text.length tokenNameStr == 0 then "" else "." <> tokenNameStr
   where
     amountStr = showText amount
     curSymbolStr = encodeByteString $ fromBuiltin $ unCurrencySymbol curSymbol
