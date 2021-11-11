@@ -5,6 +5,7 @@ import Control.Applicative ((<|>))
 import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft, maybeToRight, rightToMaybe)
+import Data.Maybe (isJust)
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
@@ -39,18 +40,28 @@ parseBeneficiary conf = toBeneficiary . words
       Beneficiary
         <$> parseAddress conf.usePubKeys (strs `atMay` 0)
         <*> maybeToRight "Invalid amount" (parseAmt conf.dropAmount (strs `atMay` 1))
-        <*> maybeToRight "Invalid asset class" (parseAsset conf.assetClass (strs `atMay` 2))
+        <*> parseAssetEither conf.assetClass strs
 
 parseAmt :: Maybe Integer -> Maybe Text -> Maybe Integer
 parseAmt cliArg rawStr =
-  cliArg <|> (readMaybe . Text.unpack =<< rawStr)
+  (readMaybe . Text.unpack =<< rawStr) <|> cliArg
 
-parseAsset :: Maybe AssetClass -> Maybe Text -> Maybe AssetClass
-parseAsset cliArg rawStr =
-  cliArg <|> (parseAsset' =<< rawStr)
+-- Parses the asset in either position 1 or 2, errors if pos 1 is valid and 2 isn't empty
+-- Otherwise, incorrect order of arguments would silently do the wrong thing
+parseAssetEither :: Maybe AssetClass -> [Text] -> Either Text AssetClass
+parseAssetEither cliArg strs =
+  if isJust mAsset1 && isJust thirdTxt
+    then Left "Invalid argument order"
+    else maybeToRight "Invalid asset class" $ mAsset1 <|> mAsset2 <|> cliArg
   where
-    parseAsset' =
-      rightToMaybe . Attoparsec.parseOnly UtxoParser.assetClassParser
+    mAsset1 = parseAsset $ strs `atMay` 1
+    thirdTxt = strs `atMay` 2
+    mAsset2 = parseAsset thirdTxt
+
+parseAsset :: Maybe Text -> Maybe AssetClass
+parseAsset rawStr = do
+  str <- rawStr
+  rightToMaybe $ Attoparsec.parseOnly UtxoParser.assetClassParser str
 
 parseAddress :: Bool -> Maybe Text -> Either Text PubKeyAddress
 parseAddress isPubKey maybeAddrStr =

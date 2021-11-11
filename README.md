@@ -56,7 +56,7 @@ This file is structured as one receipient per line, with the following format:
 `address amount currencySymbol.tokenName`
 
 - If the `use-pub-key-hashes` flag is set, the addresses become pub key hashes
-- If the `asset-class` and/or `drop-amoun` option is present, the values specified on the cli take precedence over the ones in the file (in this case these fields are optional, however the )
+- If the `asset-class` and/or `drop-amount` option is present, the values specified on the cli take precedence over the ones in the file (in this case these fields are optional, however the )
 
 #### Examples
 

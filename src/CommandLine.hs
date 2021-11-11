@@ -4,7 +4,7 @@ module CommandLine (execCommand) where
 
 import Cardano.Api (NetworkId (Mainnet, Testnet), NetworkMagic (..))
 import Config (Config (..))
-import Control.Applicative ((<**>), (<|>))
+import Control.Applicative (optional, (<**>), (<|>))
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
 import Data.Text qualified as Text
@@ -47,8 +47,8 @@ configParser =
     <*> pUsePubKeyHashes
     <*> pOwnAddressOrPubKeyHash
     <*> pSigningKeyFile
-    <*> pMaybe pAssetClass
-    <*> pMaybe pDropAmount
+    <*> optional pAssetClass
+    <*> optional pDropAmount
     <*> pBeneficiaryPerTx
     <*> pDryRun
     <*> pMinLovelaces
@@ -163,10 +163,6 @@ pFees =
     ( long "fees" <> help "Transaction fees (used for coin selection)"
         <> metavar "NATURAL"
     )
-
-pMaybe :: Parser a -> Parser (Maybe a)
-pMaybe parser =
-  fmap Just parser <|> pure Nothing
 
 execCommand :: IO Config
 execCommand = execParser opts
