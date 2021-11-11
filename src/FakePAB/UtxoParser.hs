@@ -71,9 +71,12 @@ valueParser = do
 
 assetClassParser :: Parser AssetClass
 assetClassParser =
-  choice [adaAssetClass, otherAssetClass]
+  choice [adaAssetClass, noNameAsset, otherAssetClass]
   where
     adaAssetClass = Value.assetClass Ada.adaSymbol Ada.adaToken <$ "lovelace"
+    noNameAsset = do
+      curSymbol <- CurrencySymbol <$> decodeHash (takeWhile (/= ' '))
+      pure $ Value.assetClass curSymbol ""
     otherAssetClass = do
       curSymbol <- CurrencySymbol <$> decodeHash (takeWhile (/= '.'))
       void $ char '.'
