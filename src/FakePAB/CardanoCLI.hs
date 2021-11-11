@@ -41,6 +41,7 @@ import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
 import PlutusTx.Builtins (fromBuiltin)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
+import Text.Show.Pretty (ppShow)
 import Prelude
 
 data ShellCommand a = ShellCommand
@@ -121,7 +122,7 @@ utxosAt config address = do
 -- | Build a tx body and write it to disk
 buildTx :: Config -> Address -> Tx -> IO ()
 buildTx config ownAddr tx = do
-  writeFile (Text.unpack $ txToFileName "pre-encode" tx) (show tx)
+  writeFile (Text.unpack $ txToFileName "pre-encode" tx) (ppShow tx)
   callCommand $ ShellCommand "cardano-cli" opts (const ())
   where
     opts =

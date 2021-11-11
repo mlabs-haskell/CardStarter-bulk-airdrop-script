@@ -114,6 +114,7 @@ library
     , plutus-tx
     , plutus-tx-plugin
     , prettyprinter
+    , pretty-show
     , process
     , row-types
     , safe
