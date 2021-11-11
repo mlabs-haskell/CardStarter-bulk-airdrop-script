@@ -3,7 +3,6 @@ module FakePAB.PreBalance (
 ) where
 
 import Data.Either.Combinators (rightToMaybe)
-import Data.Functor ((<&>))
 import Data.List (partition)
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -41,9 +40,12 @@ preBalanceTx ::
   Address ->
   Tx ->
   Either Text Tx
-preBalanceTx minLovelaces fees utxos changeAddr tx =
-  addLovelaces minLovelaces . balanceNonAdaOuts changeAddr utxos
-    <$> (balanceTxIns utxos minLovelaces fees =<< addTxCollaterals utxos tx)
+preBalanceTx minLovelaces fees utxos changeAddr tx = do
+  txCollat <- addTxCollaterals utxos tx
+  txBalancedIns <- balanceTxIns utxos minLovelaces fees txCollat
+  let txBalancedOuts = balanceNonAdaOuts changeAddr utxos txBalancedIns
+      txBalanced = addLovelaces minLovelaces txBalancedOuts
+  return txBalanced
 
 -- | Getting the necessary utxos to cover the fees for the transaction
 collectTxIns :: Set TxIn -> Map TxOutRef TxOut -> Value -> Either Text (Set TxIn)
