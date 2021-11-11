@@ -24,6 +24,7 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Text.Lazy qualified as LazyText
 import Data.Text.Encoding (decodeUtf8)
 import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.PreBalance (preBalanceTx)
@@ -41,7 +42,7 @@ import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
 import PlutusTx.Builtins (fromBuiltin)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
-import Text.Show.Pretty (ppShow)
+import Text.Pretty.Simple (pShow)
 import Prelude
 
 data ShellCommand a = ShellCommand
@@ -122,7 +123,7 @@ utxosAt config address = do
 -- | Build a tx body and write it to disk
 buildTx :: Config -> Address -> Tx -> IO ()
 buildTx config ownAddr tx = do
-  writeFile (Text.unpack $ txToFileName "pre-encode" tx) (ppShow tx)
+  writeFile (Text.unpack $ txToFileName "pre-encode" tx) (LazyText.unpack $ pShow tx)
   callCommand $ ShellCommand "cardano-cli" opts (const ())
   where
     opts =
