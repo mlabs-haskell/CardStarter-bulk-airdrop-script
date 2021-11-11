@@ -120,7 +120,8 @@ utxosAt config address = do
 
 -- | Build a tx body and write it to disk
 buildTx :: Config -> Address -> Tx -> IO ()
-buildTx config ownAddr tx =
+buildTx config ownAddr tx = do
+  writeFile (txToFileName "pre-encode" tx) (show tx)
   callCommand $ ShellCommand "cardano-cli" opts (const ())
   where
     opts =

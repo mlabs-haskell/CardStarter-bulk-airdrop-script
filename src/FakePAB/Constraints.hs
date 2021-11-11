@@ -41,7 +41,6 @@ submitTx config lookups constraints = do
       print err
       pure $ Left $ Text.pack (show err)
     Right unbalancedTx@UnbalancedTx {unBalancedTxTx = tx} -> do
-      logRecipientsUtxos config tx
       result <- submitScript config unbalancedTx
       -- Wait 40 seconds for the next block
 
