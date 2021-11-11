@@ -40,11 +40,12 @@ preBalanceTx ::
   Address ->
   Tx ->
   Either Text Tx
-preBalanceTx minLovelaces fees utxos changeAddr tx =
-  addTxCollaterals utxos tx
-    >>= balanceTxIns utxos minLovelaces fees
-    >>= balanceNonAdaOuts changeAddr utxos
-    >>= Right . addLovelaces minLovelaces
+preBalanceTx minLovelaces fees utxos changeAddr tx = do
+  txCollat <- addTxCollaterals utxos tx
+  txBalancedIns <- balanceTxIns utxos minLovelaces fees txCollat
+  let txBalancedOuts = balanceNonAdaOuts changeAddr utxos txBalancedIns
+      txBalanced = addLovelaces minLovelaces txBalancedOuts
+  return txBalanced
 
 -- | Getting the necessary utxos to cover the fees for the transaction
 collectTxIns :: Set TxIn -> Map TxOutRef TxOut -> Value -> Either Text (Set TxIn)
@@ -133,7 +134,7 @@ addTxCollaterals utxos tx = do
       _ -> Left "There are no utxos to be used as collateral"
 
 -- | We need to balance non ada values, as the cardano-cli is unable to balance them (as of 2021/09/24)
-balanceNonAdaOuts :: Address -> Map TxOutRef TxOut -> Tx -> Either Text Tx
+balanceNonAdaOuts :: Address -> Map TxOutRef TxOut -> Tx -> Tx
 balanceNonAdaOuts changeAddr utxos tx =
   let txInRefs = map Tx.txInRef $ Set.toList $ txInputs tx
       inputValue = mconcat $ map Tx.txOutValue $ mapMaybe (`Map.lookup` utxos) txInRefs
@@ -151,7 +152,9 @@ balanceNonAdaOuts changeAddr utxos tx =
             txOuts
           (txOut@TxOut {txOutValue = v} : txOuts, txOuts') ->
             txOut {txOutValue = v <> nonAdaChange} : (txOuts <> txOuts')
-   in Right $ tx {txOutputs = outputs}
+   in if Value.isZero nonAdaChange
+        then tx
+        else tx {txOutputs = outputs}
 
 showText :: Show a => a -> Text
 showText = Text.pack . show
