@@ -42,9 +42,10 @@ preBalanceTx ::
   Tx ->
   Either Text Tx
 preBalanceTx minLovelaces fees utxos changeAddr tx =
-  addTxCollaterals utxos tx
-    >>= balanceTxIns utxos minLovelaces fees
-    <&> addLovelaces minLovelaces . balanceNonAdaOuts changeAddr utxos
+  addLovelaces minLovelaces
+    . balanceNonAdaOuts changeAddr utxos
+    <$> balanceTxIns utxos minLovelaces fees
+    =<< addTxCollaterals utxos tx
 
 -- | Getting the necessary utxos to cover the fees for the transaction
 collectTxIns :: Set TxIn -> Map TxOutRef TxOut -> Value -> Either Text (Set TxIn)
