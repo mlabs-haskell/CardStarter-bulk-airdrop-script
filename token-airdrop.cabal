@@ -116,6 +116,7 @@ library
     , prettyprinter
     , process
     , row-types
+    , safe
     , serialise
     , split
     , stm

@@ -71,11 +71,12 @@ defaultConfig =
   Config
     { network = Testnet (NetworkMagic 100)
     , protocolParamsFile = "./protocol.json"
-    , assetClass = Value.assetClass "adc123" "testtoken"
     , beneficiariesFile = "./beneficiaries"
     , usePubKeys = True
     , ownAddress = Ledger.pubKeyHashAddress "aabb1122"
     , signingKeyFile = "./own.skey"
+    , assetClass = Just $ Value.assetClass "adc123" "testtoken"
+    , dropAmount = Just 4
     , beneficiaryPerTx = 100
     , dryRun = True
     , minLovelaces = 100

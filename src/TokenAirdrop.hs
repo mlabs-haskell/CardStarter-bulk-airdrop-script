@@ -20,11 +20,12 @@ tokenAirdrop config = do
           group config.beneficiaryPerTx $
             map
               ( \beneficiary ->
-                  let val = Value.assetClassValue config.assetClass beneficiary.amount
+                  let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
                    in Constraints.mustPayToPubKey beneficiary.address.pkaPubKeyHash val
               )
               beneficiaries
 
+  print beneficiaries
   mapM
     ( \tx -> do
         utxos <- utxosAt config $ config.ownAddress

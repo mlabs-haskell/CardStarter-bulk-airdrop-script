@@ -4,7 +4,7 @@ module CommandLine (execCommand) where
 
 import Cardano.Api (NetworkId (Mainnet, Testnet), NetworkMagic (..))
 import Config (Config (..))
-import Control.Applicative ((<**>), (<|>))
+import Control.Applicative (optional, (<**>), (<|>))
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
 import Data.Text qualified as Text
@@ -43,11 +43,12 @@ configParser =
   Config
     <$> pNetworkId
     <*> pProtocolParamsFile
-    <*> pAssetClass
     <*> pBeneficiariesFile
     <*> pUsePubKeyHashes
     <*> pOwnAddressOrPubKeyHash
     <*> pSigningKeyFile
+    <*> optional pAssetClass
+    <*> optional pDropAmount
     <*> pBeneficiaryPerTx
     <*> pDryRun
     <*> pMinLovelaces
@@ -114,7 +115,13 @@ pAssetClass :: Parser AssetClass
 pAssetClass =
   option
     (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
-    (long "asset-class" <> help "Token asset class" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
+    (long "asset-class" <> help "Token asset class (overrides beneficiaries file config)" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
+
+pDropAmount :: Parser Integer
+pDropAmount =
+  option
+    auto
+    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary (overrides beneficiaries file config)" <> metavar "NATURAL")
 
 pBeneficiariesFile :: Parser FilePath
 pBeneficiariesFile =
