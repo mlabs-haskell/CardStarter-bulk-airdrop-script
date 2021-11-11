@@ -1,17 +1,18 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module FakePAB.Constraints (submitTx) where
+module FakePAB.Constraints (submitTx, waitNSlots) where
 
 import Config (Config)
 import Control.Concurrent (threadDelay)
 import Control.Lens ((^.))
+import Control.Monad (unless)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import FakePAB.Address (unsafeSerialiseAddress)
-import FakePAB.CardanoCLI (submitScript, utxosAt)
+import FakePAB.CardanoCLI (queryTip, submitScript, utxosAt)
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address)
 import Ledger.Constraints (ScriptLookups (..))
@@ -43,10 +44,24 @@ submitTx config lookups constraints = do
       logRecipientsUtxos config tx
       result <- submitScript config unbalancedTx
       -- Wait 40 seconds for the next block
-      putStrLn "Wait 40 seconds for the next block"
-      threadDelay 40_000_000
+
+      putStrLn "Tx submitted, waiting for next block..."
+      waitNSlots config 1
       logRecipientsUtxos config tx
       pure result
+
+{- | Wait for at least n slots. The slot number only changes when a new block is appended to the chain
+ so it waits for at least one block
+-}
+waitNSlots :: Config -> Integer -> IO ()
+waitNSlots config n = do
+  tip <- queryTip config
+  waitNSlots' tip.slot
+  where
+    waitNSlots' refSlot = do
+      threadDelay 10_000_000
+      tip' <- queryTip config
+      unless (tip'.slot > refSlot + n) $ waitNSlots' refSlot
 
 -- | Prints all utxos for all the recipients of a transaction
 logRecipientsUtxos :: Config -> Tx -> IO ()
