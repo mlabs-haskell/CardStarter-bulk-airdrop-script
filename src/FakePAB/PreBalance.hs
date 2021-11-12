@@ -3,7 +3,7 @@ module FakePAB.PreBalance (
 ) where
 
 import Data.Either.Combinators (rightToMaybe)
-import Data.List (partition)
+import Data.List (partition, sortOn)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
@@ -71,16 +71,25 @@ collectTxIns txIns utxos value =
               else Set.insert txIn acc
         )
         Set.empty
-        $ filter (not . (`Set.member` txIns)) $
-          mapMaybe (rightToMaybe . txOutToTxIn) $ Map.toList utxos
+        $ sortOn txInLovelace otherTotalInputs
+
+    otherTotalInputs =
+      filter (not . (`Set.member` txIns)) $
+        mapMaybe (rightToMaybe . txOutToTxIn) $ Map.toList utxos
+
+    txInLovelace :: TxIn -> Maybe Integer
+    txInLovelace txIn = Ada.getLovelace . Ada.fromValue <$> txInValue txIn
 
     isSufficient :: Set TxIn -> Bool
     isSufficient txIns' =
       txInsValue (txIns <> txIns') `Value.geq` value
 
+    txInValue :: TxIn -> Maybe Value
+    txInValue txIn = Tx.txOutValue <$> Tx.txInRef txIn `Map.lookup` utxos
+
     txInsValue :: Set TxIn -> Value
     txInsValue txIns' =
-      mconcat $ map Tx.txOutValue $ mapMaybe ((`Map.lookup` utxos) . Tx.txInRef) $ Set.toList txIns'
+      mconcat $ mapMaybe txInValue $ Set.toList txIns'
 
 -- Converting a chain index transaction output to a transaction input type
 txOutToTxIn :: (TxOutRef, TxOut) -> Either Text TxIn
@@ -164,7 +173,7 @@ filterNonAda :: Value -> Value
 filterNonAda =
   mconcat
     . map unflattenValue
-    . filter (\(curSymbol, tokenName, _) -> curSymbol /= Ada.adaSymbol && tokenName /= Ada.adaToken)
+    . filter (\(curSymbol, tokenName, _) -> curSymbol /= Ada.adaSymbol || tokenName /= Ada.adaToken)
     . Value.flattenValue
 
 minus :: Value -> Value -> Value

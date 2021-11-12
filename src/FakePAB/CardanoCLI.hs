@@ -24,8 +24,8 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Data.Text.Lazy qualified as LazyText
 import Data.Text.Encoding (decodeUtf8)
+import Data.Text.Lazy qualified as LazyText
 import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.PreBalance (preBalanceTx)
 import FakePAB.UtxoParser qualified as UtxoParser
