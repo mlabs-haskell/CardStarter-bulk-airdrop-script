@@ -7,6 +7,7 @@ import Data.List (partition, sortOn)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
+import Data.Ord (Down (..))
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
@@ -71,7 +72,7 @@ collectTxIns txIns utxos value =
               else Set.insert txIn acc
         )
         Set.empty
-        $ sortOn txInLovelace otherTotalInputs
+        $ sortOn (Down . txInLovelace) otherTotalInputs
 
     otherTotalInputs =
       filter (not . (`Set.member` txIns)) $
