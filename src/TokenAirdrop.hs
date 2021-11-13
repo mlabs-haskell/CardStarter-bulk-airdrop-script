@@ -10,7 +10,7 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Value qualified as Value
 import Prelude
 
-tokenAirdrop :: Config -> IO [Either Text ()]
+tokenAirdrop :: Config -> IO (Either Text ())
 tokenAirdrop config = do
   beneficiaries <- readBeneficiariesFile config
   putStrLn $ "Sending tokens to " ++ show (length beneficiaries) ++ " addresses"
@@ -27,7 +27,7 @@ tokenAirdrop config = do
 
   mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
 
-  mapM
+  mapMErr
     ( \(tx, bs, i) -> do
         putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
         mapM_ print bs
@@ -38,6 +38,10 @@ tokenAirdrop config = do
         submitTx @Void config lookups tx
     )
     $ zipWith combine2To3 txPairs [1 :: Int ..]
+
+-- | mapM for IO Either that stops on Left
+mapMErr :: (a -> IO (Either Text ())) -> [a] -> IO (Either Text ())
+mapMErr f = foldr (\x acc -> f x >>= either (pure . Left) (const acc)) (pure $ Right ())
 
 combine2To3 :: (a, b) -> c -> (a, b, c)
 combine2To3 (a, b) = (a,b,)
