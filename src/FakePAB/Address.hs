@@ -52,7 +52,7 @@ data PubKeyAddress = PubKeyAddress
   }
 
 instance Show PubKeyAddress where
-  show (PubKeyAddress pkaPubKeyHash _) = show pkaPubKeyHash
+  show (PubKeyAddress pkh _) = show pkh
 
 toPubKeyAddress :: Address -> Maybe PubKeyAddress
 toPubKeyAddress (Address cred stakingCred) =
