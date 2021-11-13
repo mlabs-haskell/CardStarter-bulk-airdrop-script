@@ -148,6 +148,7 @@ test-suite token-airdrop-test
 
 executable token-airdrop
   import:         common-lang
-  build-depends:  token-airdrop
+  build-depends:  token-airdrop,
+                  text ^>=1.2.4.0
   main-is:        Main.hs
   hs-source-dirs: executables/TokenAirdrop
