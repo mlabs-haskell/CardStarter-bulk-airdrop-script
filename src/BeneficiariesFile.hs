@@ -26,7 +26,7 @@ data Beneficiary = Beneficiary
   }
 
 instance Show Beneficiary where
-  show (Beneficiary addr amount assetClass) = show addr ++ " " ++ show amount ++ " " ++ show assetClass
+  show (Beneficiary addr amt ac) = show addr ++ " " ++ show amt ++ " " ++ show ac
 
 parseContent :: Config -> Text -> Either Text [Beneficiary]
 parseContent conf =
