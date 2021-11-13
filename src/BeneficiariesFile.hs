@@ -24,7 +24,9 @@ data Beneficiary = Beneficiary
   , amount :: !Integer
   , assetClass :: !AssetClass
   }
-  deriving stock (Show)
+
+instance Show Beneficiary where
+  show (Beneficiary addr amount assetClass) = show addr ++ " " ++ show amount ++ " " ++ show assetClass
 
 parseContent :: Config -> Text -> Either Text [Beneficiary]
 parseContent conf =

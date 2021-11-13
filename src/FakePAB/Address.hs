@@ -50,7 +50,9 @@ data PubKeyAddress = PubKeyAddress
   { pkaPubKeyHash :: PubKeyHash
   , pkaStakingCredential :: Maybe StakingCredential
   }
-  deriving stock (Show)
+
+instance Show PubKeyAddress where
+  show (PubKeyAddress pkaPubKeyHash _) = show pkaPubKeyHash
 
 toPubKeyAddress :: Address -> Maybe PubKeyAddress
 toPubKeyAddress (Address cred stakingCred) =
