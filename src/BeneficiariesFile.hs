@@ -1,4 +1,4 @@
-module BeneficiariesFile (readBeneficiariesFile, Beneficiary) where
+module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..)) where
 
 import Config (Config (..))
 import Control.Applicative ((<|>))

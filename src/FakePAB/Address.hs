@@ -1,7 +1,7 @@
 module FakePAB.Address (
   toPubKeyAddress,
   fromPubKeyAddress,
-  PubKeyAddress,
+  PubKeyAddress (..),
   unsafeSerialiseAddress,
   unsafeDeserialiseAddress,
   serialiseAddress,

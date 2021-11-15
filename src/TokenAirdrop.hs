@@ -1,12 +1,15 @@
 module TokenAirdrop (tokenAirdrop) where
 
-import BeneficiariesFile (readBeneficiariesFile)
+import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
 import Config (Config (..))
+import Data.Map (Map, fromList)
 import Data.Text (Text)
 import Data.Void (Void)
+import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx)
 import Ledger.Constraints qualified as Constraints
+import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
 import Prelude
 
@@ -27,6 +30,11 @@ tokenAirdrop config = do
 
   mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
 
+  let addrs :: [PubKeyAddress]
+      addrs = address <$> beneficiaries
+      pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
+      pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
+
   mapMErr
     ( \(tx, bs, i) -> do
         putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
@@ -35,7 +43,7 @@ tokenAirdrop config = do
         utxos <- utxosAt config $ config.ownAddress
         let lookups = Constraints.unspentOutputs utxos
 
-        submitTx @Void config lookups tx
+        submitTx @Void config pubKeyAddressMap lookups tx
     )
     $ zipWith combine2To3 txPairs [1 :: Int ..]
 
