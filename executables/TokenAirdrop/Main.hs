@@ -9,6 +9,4 @@ main :: IO ()
 main = do
   config <- CommandLine.execCommand
   result <- TokenAirdrop.tokenAirdrop config
-  case result of
-    Left err -> putStrLn $ unpack err
-    Right _ -> putStrLn "Token drop complete!"
+  putStrLn $ either unpack (const "Token drop complete!") result

@@ -51,7 +51,7 @@ submitTx config addressMap lookups constraints = do
 
       putStrLn "Tx submitted, waiting for next block..."
       waitNSlots config 1
-      logRecipientsUtxos config tx
+      logRecipientsUtxos config tx'
       pure result
 
 -- | Replaces

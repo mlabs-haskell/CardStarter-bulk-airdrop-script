@@ -22,7 +22,7 @@ import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
-import Data.Text (Text)
+import Data.Text (Text, null)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import Data.Text.Lazy qualified as LazyText
@@ -43,7 +43,7 @@ import PlutusTx.Builtins (fromBuiltin)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
 import Text.Pretty.Simple (pShowNoColor)
-import Prelude
+import Prelude hiding (null)
 
 data ShellCommand a = ShellCommand
   { cmdName :: Text
@@ -210,8 +210,8 @@ txOutRefToCliArg (TxOutRef (TxId txId) txIx) =
 flatValueToCliArg :: (CurrencySymbol, TokenName, Integer) -> Text
 flatValueToCliArg (curSymbol, name, amount)
   | curSymbol == Ada.adaSymbol && name == Ada.adaToken = amountStr
-  | otherwise =
-    amountStr <> " " <> curSymbolStr <> if Text.length tokenNameStr == 0 then "" else "." <> tokenNameStr
+  | null tokenNameStr = amountStr <> " " <> curSymbolStr
+  | otherwise = amountStr <> " " <> curSymbolStr <> "." <> tokenNameStr
   where
     amountStr = showText amount
     curSymbolStr = encodeByteString $ fromBuiltin $ unCurrencySymbol curSymbol
