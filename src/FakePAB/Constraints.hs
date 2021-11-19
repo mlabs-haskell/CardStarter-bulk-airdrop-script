@@ -112,7 +112,7 @@ prettyUtxo (_, chainIndexTxOut) =
       Value.flattenValue $ chainIndexTxOut ^. Tx.ciTxOutValue
   where
     showFlattenedValue (curSymbol, name, amount)
-      | curSymbol == Ada.adaSymbol && name == Ada.adaToken = amountStr <> " lovelace"
+      | curSymbol == Ada.adaSymbol = amountStr <> " lovelace"
       | otherwise = amountStr <> " " <> tokenNameStr
       where
         amountStr = Text.pack (show amount)

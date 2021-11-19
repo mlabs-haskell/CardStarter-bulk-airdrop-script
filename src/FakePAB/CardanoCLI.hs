@@ -209,7 +209,7 @@ txOutRefToCliArg (TxOutRef (TxId txId) txIx) =
 
 flatValueToCliArg :: (CurrencySymbol, TokenName, Integer) -> Text
 flatValueToCliArg (curSymbol, name, amount)
-  | curSymbol == Ada.adaSymbol && name == Ada.adaToken = amountStr
+  | curSymbol == Ada.adaSymbol = amountStr
   | null tokenNameStr = amountStr <> " " <> curSymbolStr
   | otherwise = amountStr <> " " <> curSymbolStr <> "." <> tokenNameStr
   where

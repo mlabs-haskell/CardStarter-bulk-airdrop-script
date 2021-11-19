@@ -171,11 +171,7 @@ showText = Text.pack . show
 
 -- | Filter a value to contain only non ada assets
 filterNonAda :: Value -> Value
-filterNonAda =
-  mconcat
-    . map unflattenValue
-    . filter (\(curSymbol, tokenName, _) -> curSymbol /= Ada.adaSymbol || tokenName /= Ada.adaToken)
-    . Value.flattenValue
+filterNonAda (Value m) = Value $ Map.filterWithKey (\k _ -> k /= Ada.adaSymbol) m
 
 minus :: Value -> Value -> Value
 minus x y =
