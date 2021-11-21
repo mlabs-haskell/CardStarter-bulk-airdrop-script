@@ -1,4 +1,4 @@
-module BeneficiariesFile (readBeneficiariesFile, Beneficiary) where
+module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..)) where
 
 import Config (Config (..))
 import Control.Applicative ((<|>))
@@ -24,7 +24,9 @@ data Beneficiary = Beneficiary
   , amount :: !Integer
   , assetClass :: !AssetClass
   }
-  deriving stock (Show)
+
+instance Show Beneficiary where
+  show (Beneficiary addr amt ac) = show addr ++ " " ++ show amt ++ " " ++ show ac
 
 parseContent :: Config -> Text -> Either Text [Beneficiary]
 parseContent conf =

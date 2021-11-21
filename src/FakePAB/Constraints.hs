@@ -4,20 +4,22 @@ module FakePAB.Constraints (submitTx, waitNSlots) where
 
 import Config (Config)
 import Control.Concurrent (threadDelay)
-import Control.Lens ((^.))
+import Control.Lens (mapped, (%~), (^.))
 import Control.Monad (unless)
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
-import FakePAB.Address (unsafeSerialiseAddress)
+import FakePAB.Address (PubKeyAddress, fromPubKeyAddress, unsafeSerialiseAddress)
 import FakePAB.CardanoCLI (queryTip, submitScript, utxosAt)
 import Ledger.Ada qualified as Ada
-import Ledger.Address (Address)
+import Ledger.Address (Address, toPubKeyHash)
 import Ledger.Constraints (ScriptLookups (..))
 import Ledger.Constraints.OffChain (UnbalancedTx (..), mkTx)
 import Ledger.Constraints.TxConstraints (TxConstraints)
+import Ledger.Crypto (PubKeyHash)
 import Ledger.Tx (ChainIndexTxOut (..), Tx (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
 import Ledger.Typed.Scripts.Validators (DatumType, RedeemerType)
@@ -30,10 +32,11 @@ submitTx ::
   forall a.
   (FromData (DatumType a), ToData (DatumType a), ToData (RedeemerType a)) =>
   Config ->
+  Map PubKeyHash PubKeyAddress ->
   ScriptLookups a ->
   TxConstraints (RedeemerType a) (DatumType a) ->
   IO (Either Text ())
-submitTx config lookups constraints = do
+submitTx config addressMap lookups constraints = do
   putStrLn "Starting contract"
   let eitherUnbalancedTx = mkTx lookups constraints
   case eitherUnbalancedTx of
@@ -41,14 +44,25 @@ submitTx config lookups constraints = do
       print err
       pure $ Left $ Text.pack (show err)
     Right unbalancedTx@UnbalancedTx {unBalancedTxTx = tx} -> do
-      logRecipientsUtxos config tx
-      result <- submitScript config unbalancedTx
+      let tx' = useFullAddresses addressMap tx
+
+      result <- submitScript config unbalancedTx {unBalancedTxTx = tx'}
       -- Wait 40 seconds for the next block
 
       putStrLn "Tx submitted, waiting for next block..."
       waitNSlots config 1
-      logRecipientsUtxos config tx
+      logRecipientsUtxos config tx'
       pure result
+
+-- | Replaces
+useFullAddresses :: Map PubKeyHash PubKeyAddress -> Tx -> Tx
+useFullAddresses addressMap = Tx.outputs . mapped . Tx.outAddress %~ mapTxOut
+  where
+    mapTxOut :: Address -> Address
+    mapTxOut addr = fromMaybe addr $ do
+      pkh <- toPubKeyHash addr
+      pubKeyAddr <- pkh `Map.lookup` addressMap
+      pure $ fromPubKeyAddress pubKeyAddr
 
 {- | Wait for at least n slots. The slot number only changes when a new block is appended to the chain
  so it waits for at least one block
@@ -98,7 +112,7 @@ prettyUtxo (_, chainIndexTxOut) =
       Value.flattenValue $ chainIndexTxOut ^. Tx.ciTxOutValue
   where
     showFlattenedValue (curSymbol, name, amount)
-      | curSymbol == Ada.adaSymbol && name == Ada.adaToken = amountStr <> " lovelace"
+      | curSymbol == Ada.adaSymbol = amountStr <> " lovelace"
       | otherwise = amountStr <> " " <> tokenNameStr
       where
         amountStr = Text.pack (show amount)

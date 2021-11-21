@@ -3,10 +3,11 @@ module FakePAB.PreBalance (
 ) where
 
 import Data.Either.Combinators (rightToMaybe)
-import Data.List (partition)
+import Data.List (partition, sortOn)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
+import Data.Ord (Down (..))
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
@@ -21,13 +22,14 @@ import Ledger.Tx (
   TxOutRef (..),
  )
 import Ledger.Tx qualified as Tx
-import Ledger.Value (Value)
+import Ledger.Value (Value (..))
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (
   Credential (PubKeyCredential, ScriptCredential),
   CurrencySymbol (..),
   TokenName (..),
  )
+import PlutusTx.AssocMap qualified as AssocMap
 import Prelude
 
 {- | Collect necessary tx inputs and collaterals, add minimum lovelace values and balance non ada
@@ -71,16 +73,25 @@ collectTxIns txIns utxos value =
               else Set.insert txIn acc
         )
         Set.empty
-        $ filter (not . (`Set.member` txIns)) $
-          mapMaybe (rightToMaybe . txOutToTxIn) $ Map.toList utxos
+        $ sortOn (Down . txInLovelace) otherTotalInputs
+
+    otherTotalInputs =
+      filter (not . (`Set.member` txIns)) $
+        mapMaybe (rightToMaybe . txOutToTxIn) $ Map.toList utxos
+
+    txInLovelace :: TxIn -> Maybe Integer
+    txInLovelace txIn = Ada.getLovelace . Ada.fromValue <$> txInValue txIn
 
     isSufficient :: Set TxIn -> Bool
     isSufficient txIns' =
       txInsValue (txIns <> txIns') `Value.geq` value
 
+    txInValue :: TxIn -> Maybe Value
+    txInValue txIn = Tx.txOutValue <$> Tx.txInRef txIn `Map.lookup` utxos
+
     txInsValue :: Set TxIn -> Value
     txInsValue txIns' =
-      mconcat $ map Tx.txOutValue $ mapMaybe ((`Map.lookup` utxos) . Tx.txInRef) $ Set.toList txIns'
+      mconcat $ mapMaybe txInValue $ Set.toList txIns'
 
 -- Converting a chain index transaction output to a transaction input type
 txOutToTxIn :: (TxOutRef, TxOut) -> Either Text TxIn
@@ -159,13 +170,13 @@ balanceNonAdaOuts changeAddr utxos tx =
 showText :: Show a => a -> Text
 showText = Text.pack . show
 
+-- | Filter by key for Associated maps (why doesn't this exist?)
+filterKey :: (k -> Bool) -> AssocMap.Map k v -> AssocMap.Map k v
+filterKey f = AssocMap.mapMaybeWithKey $ \k v -> if f k then Just v else Nothing
+
 -- | Filter a value to contain only non ada assets
 filterNonAda :: Value -> Value
-filterNonAda =
-  mconcat
-    . map unflattenValue
-    . filter (\(curSymbol, tokenName, _) -> curSymbol /= Ada.adaSymbol && tokenName /= Ada.adaToken)
-    . Value.flattenValue
+filterNonAda = Value . filterKey (/= Ada.adaSymbol) . getValue
 
 minus :: Value -> Value -> Value
 minus x y =

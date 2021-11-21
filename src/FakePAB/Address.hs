@@ -1,7 +1,7 @@
 module FakePAB.Address (
   toPubKeyAddress,
   fromPubKeyAddress,
-  PubKeyAddress,
+  PubKeyAddress (..),
   unsafeSerialiseAddress,
   unsafeDeserialiseAddress,
   serialiseAddress,
@@ -50,7 +50,9 @@ data PubKeyAddress = PubKeyAddress
   { pkaPubKeyHash :: PubKeyHash
   , pkaStakingCredential :: Maybe StakingCredential
   }
-  deriving stock (Show)
+
+instance Show PubKeyAddress where
+  show (PubKeyAddress pkh _) = show pkh
 
 toPubKeyAddress :: Address -> Maybe PubKeyAddress
 toPubKeyAddress (Address cred stakingCred) =

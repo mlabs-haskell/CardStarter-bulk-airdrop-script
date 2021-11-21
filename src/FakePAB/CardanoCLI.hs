@@ -22,9 +22,10 @@ import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
-import Data.Text (Text)
+import Data.Text (Text, null)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
+import Data.Text.Lazy qualified as LazyText
 import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.PreBalance (preBalanceTx)
 import FakePAB.UtxoParser qualified as UtxoParser
@@ -41,7 +42,8 @@ import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
 import PlutusTx.Builtins (fromBuiltin)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
-import Prelude
+import Text.Pretty.Simple (pShowNoColor)
+import Prelude hiding (null)
 
 data ShellCommand a = ShellCommand
   { cmdName :: Text
@@ -120,7 +122,8 @@ utxosAt config address = do
 
 -- | Build a tx body and write it to disk
 buildTx :: Config -> Address -> Tx -> IO ()
-buildTx config ownAddr tx =
+buildTx config ownAddr tx = do
+  writeFile (Text.unpack $ txToFileName "pre-encode" tx) (LazyText.unpack $ pShowNoColor tx)
   callCommand $ ShellCommand "cardano-cli" opts (const ())
   where
     opts =
@@ -206,9 +209,9 @@ txOutRefToCliArg (TxOutRef (TxId txId) txIx) =
 
 flatValueToCliArg :: (CurrencySymbol, TokenName, Integer) -> Text
 flatValueToCliArg (curSymbol, name, amount)
-  | curSymbol == Ada.adaSymbol && name == Ada.adaToken = amountStr
-  | otherwise =
-    amountStr <> " " <> curSymbolStr <> "." <> tokenNameStr
+  | curSymbol == Ada.adaSymbol = amountStr
+  | null tokenNameStr = amountStr <> " " <> curSymbolStr
+  | otherwise = amountStr <> " " <> curSymbolStr <> "." <> tokenNameStr
   where
     amountStr = showText amount
     curSymbolStr = encodeByteString $ fromBuiltin $ unCurrencySymbol curSymbol
