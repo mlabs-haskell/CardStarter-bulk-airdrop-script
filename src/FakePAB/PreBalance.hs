@@ -22,13 +22,14 @@ import Ledger.Tx (
   TxOutRef (..),
  )
 import Ledger.Tx qualified as Tx
-import Ledger.Value (Value)
+import Ledger.Value (Value (..))
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (
   Credential (PubKeyCredential, ScriptCredential),
   CurrencySymbol (..),
   TokenName (..),
  )
+import PlutusTx.AssocMap qualified as AssocMap
 import Prelude
 
 {- | Collect necessary tx inputs and collaterals, add minimum lovelace values and balance non ada
@@ -169,9 +170,13 @@ balanceNonAdaOuts changeAddr utxos tx =
 showText :: Show a => a -> Text
 showText = Text.pack . show
 
+-- | Filter by key for Associated maps (why doesn't this exist?)
+filterKey :: (k -> Bool) -> AssocMap.Map k v -> AssocMap.Map k v
+filterKey f = AssocMap.mapMaybeWithKey $ \k v -> if f k then Just v else Nothing
+
 -- | Filter a value to contain only non ada assets
 filterNonAda :: Value -> Value
-filterNonAda (Value m) = Value $ Map.filterWithKey (\k _ -> k /= Ada.adaSymbol) m
+filterNonAda (Value m) = Value $ filterKey (/= Ada.adaSymbol) m
 
 minus :: Value -> Value -> Value
 minus x y =
