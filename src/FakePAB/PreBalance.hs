@@ -176,7 +176,7 @@ filterKey f = AssocMap.mapMaybeWithKey $ \k v -> if f k then Just v else Nothing
 
 -- | Filter a value to contain only non ada assets
 filterNonAda :: Value -> Value
-filterNonAda (Value m) = Value $ filterKey (/= Ada.adaSymbol) m
+filterNonAda = Value . filterKey (/= Ada.adaSymbol) . getValue
 
 minus :: Value -> Value -> Value
 minus x y =
