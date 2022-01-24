@@ -2,6 +2,7 @@ module FakePAB.UtxoParser (
   chainIndexTxOutParser,
   utxoMapParser,
   assetClassParser,
+  txIdParser,
 ) where
 
 import Control.Applicative ((<|>))
@@ -43,11 +44,14 @@ utxoMapParser address =
 
 txOutRefParser :: Parser TxOutRef
 txOutRefParser = do
-  txId <- TxId <$> decodeHash (takeWhile (/= ' '))
+  txId <- txIdParser
 
   skipSpace
   txIx <- decimal
   pure $ TxOutRef txId txIx
+
+txIdParser :: Parser TxId
+txIdParser = TxId <$> decodeHash (takeWhile (/= ' '))
 
 chainIndexTxOutParser :: Address -> Parser ChainIndexTxOut
 chainIndexTxOutParser address = do

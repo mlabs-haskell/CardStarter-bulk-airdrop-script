@@ -7,7 +7,7 @@ import Data.Text (Text)
 import Data.Void (Void)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
-import FakePAB.Constraints (submitTx)
+import FakePAB.Constraints (submitTx, waitNSlots)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
@@ -43,7 +43,12 @@ tokenAirdrop config = do
         utxos <- utxosAt config $ config.ownAddress
         let lookups = Constraints.unspentOutputs utxos
 
-        submitTx @Void config pubKeyAddressMap lookups tx
+        eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
+        -- Wait 60 seconds for the next block
+        putStrLn "Tx submitted, waiting for next block..."
+
+        waitNSlots config 60
+        return $ () <$ eTxId
     )
     $ zipWith combine2To3 txPairs [1 :: Int ..]
 

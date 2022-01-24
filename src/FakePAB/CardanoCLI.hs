@@ -15,7 +15,7 @@ import Data.Aeson qualified as JSON
 import Data.Aeson.Extras (encodeByteString)
 import Data.Attoparsec.Text (parseOnly)
 import Data.ByteString.Lazy.Char8 qualified as Char8
-import Data.Either.Combinators (rightToMaybe)
+import Data.Either.Combinators (fromRight, rightToMaybe)
 import Data.List (sort)
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -58,7 +58,7 @@ callCommand ShellCommand {cmdName, cmdArgs, cmdOutParser} =
 {- | Submit a transaction by calling cardano-cli commands
  Returns an error message if submitting the transaction fails.
 -}
-submitScript :: Config -> UnbalancedTx -> IO (Either Text ())
+submitScript :: Config -> UnbalancedTx -> IO (Either Text TxId)
 submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
   -- Configuration
   let ownAddr = config.ownAddress
@@ -75,10 +75,15 @@ submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
       createDirectoryIfMissing False "txs"
       buildTx config ownAddr preparedTx
       signTx preparedTx config.signingKeyFile
+      txId <- getCLITxId preparedTx
 
       if config.dryRun
-        then pure $ Right ()
-        else submitTx preparedTx config
+        then do
+          putStrLn "Dry run, not submitting transaction"
+          pure $ Right txId
+        else do
+          putStrLn "Submitting transaction"
+          fmap (txId <$) $ submitTx preparedTx config
 
 data Tip = Tip
   { epoch :: Integer
@@ -119,6 +124,17 @@ utxosAt config address = do
   where
     toUtxo :: Text -> Either String (TxOutRef, ChainIndexTxOut)
     toUtxo line = parseOnly (UtxoParser.utxoMapParser address) line
+
+-- | Gets the transaction ID as reported from the CLI - for this can differ due to CLI's balancing
+getCLITxId :: Tx -> IO TxId
+getCLITxId tx = do
+  callCommand $ ShellCommand "cardano-cli" opts (fromRight "" . parseOnly UtxoParser.txIdParser . Text.pack)
+  where
+    opts =
+      mconcat
+        [ ["transaction", "txid" ]
+        , ["--tx-body-file", txToFileName "raw" tx ]
+        ]
 
 -- | Build a tx body and write it to disk
 buildTx :: Config -> Address -> Tx -> IO ()
