@@ -132,8 +132,8 @@ getCLITxId tx = do
   where
     opts =
       mconcat
-        [ ["transaction", "txid" ]
-        , ["--tx-body-file", txToFileName "raw" tx ]
+        [ ["transaction", "txid"]
+        , ["--tx-body-file", txToFileName "raw" tx]
         ]
 
 -- | Build a tx body and write it to disk

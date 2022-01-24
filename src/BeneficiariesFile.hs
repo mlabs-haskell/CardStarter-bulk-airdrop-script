@@ -52,13 +52,14 @@ parseAmt cliArg rawStr =
 -- Otherwise, incorrect order of arguments would silently do the wrong thing
 parseAssetEither :: Maybe AssetClass -> [Text] -> Either Text AssetClass
 parseAssetEither cliArg _ = return $ fromJust cliArg
-  -- if isJust mAsset1 && isJust thirdTxt
-  --   then Left "Invalid argument order"
-  --   else maybeToRight "Invalid asset class" $ mAsset1 <|> mAsset2 <|> cliArg
-  -- where
-  --   mAsset1 = parseAsset $ strs `atMay` 1
-  --   thirdTxt = strs `atMay` 2
-  --   mAsset2 = parseAsset thirdTxt
+
+-- if isJust mAsset1 && isJust thirdTxt
+--   then Left "Invalid argument order"
+--   else maybeToRight "Invalid asset class" $ mAsset1 <|> mAsset2 <|> cliArg
+-- where
+--   mAsset1 = parseAsset $ strs `atMay` 1
+--   thirdTxt = strs `atMay` 2
+--   mAsset2 = parseAsset thirdTxt
 
 parseAsset :: Maybe Text -> Maybe AssetClass
 parseAsset rawStr = do
