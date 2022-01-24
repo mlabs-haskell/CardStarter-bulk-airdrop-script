@@ -79,10 +79,10 @@ submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
 
       if config.dryRun
         then do
-          putStrLn "Dry run, not submitting transaction"
+          putStrLn $ "Dry run, not submitting transaction: " <> show txId
           pure $ Right txId
         else do
-          putStrLn "Submitting transaction"
+          putStrLn $ "Submitting transaction: " <> show txId
           fmap (txId <$) $ submitTx preparedTx config
 
 data Tip = Tip
