@@ -1,11 +1,11 @@
-module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..)) where
+module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset) where
 
 import Config (Config (..))
 import Control.Applicative ((<|>))
 import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft, maybeToRight, rightToMaybe)
-import Data.Maybe (isJust)
+import Data.Maybe (fromJust)
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
@@ -51,14 +51,14 @@ parseAmt cliArg rawStr =
 -- Parses the asset in either position 1 or 2, errors if pos 1 is valid and 2 isn't empty
 -- Otherwise, incorrect order of arguments would silently do the wrong thing
 parseAssetEither :: Maybe AssetClass -> [Text] -> Either Text AssetClass
-parseAssetEither cliArg strs =
-  if isJust mAsset1 && isJust thirdTxt
-    then Left "Invalid argument order"
-    else maybeToRight "Invalid asset class" $ mAsset1 <|> mAsset2 <|> cliArg
-  where
-    mAsset1 = parseAsset $ strs `atMay` 1
-    thirdTxt = strs `atMay` 2
-    mAsset2 = parseAsset thirdTxt
+parseAssetEither cliArg _ = return $ fromJust cliArg
+  -- if isJust mAsset1 && isJust thirdTxt
+  --   then Left "Invalid argument order"
+  --   else maybeToRight "Invalid asset class" $ mAsset1 <|> mAsset2 <|> cliArg
+  -- where
+  --   mAsset1 = parseAsset $ strs `atMay` 1
+  --   thirdTxt = strs `atMay` 2
+  --   mAsset2 = parseAsset thirdTxt
 
 parseAsset :: Maybe Text -> Maybe AssetClass
 parseAsset rawStr = do
@@ -77,7 +77,7 @@ parseAddress isPubKey maybeAddrStr =
       addr <- deserialiseAddress addrStr
       toPubKeyAddress' addr
   where
-    toPubKeyAddress' = maybeToRight "Script addresses are not allowed" . toPubKeyAddress
+    toPubKeyAddress' = maybeToRight ("Script addresses are not allowed: " <> fromJust maybeAddrStr) . toPubKeyAddress
 
 parsePubKeyHash' :: Text -> Either Text PubKeyHash
 parsePubKeyHash' rawStr =

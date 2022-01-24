@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module FakePAB.Constraints (submitTx, waitNSlots) where
+module FakePAB.Constraints (submitTx, waitNSlots, logRecipientsUtxos) where
 
 import Config (Config)
 import Control.Concurrent (threadDelay)
@@ -47,11 +47,11 @@ submitTx config addressMap lookups constraints = do
       let tx' = useFullAddresses addressMap tx
 
       result <- submitScript config unbalancedTx {unBalancedTxTx = tx'}
-      -- Wait 40 seconds for the next block
+      -- Wait 60 seconds for the next block
 
       putStrLn "Tx submitted, waiting for next block..."
-      waitNSlots config 1
-      logRecipientsUtxos config tx'
+      waitNSlots config 60
+
       pure result
 
 -- | Replaces
