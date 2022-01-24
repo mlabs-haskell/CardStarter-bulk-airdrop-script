@@ -2,7 +2,7 @@ module TokenAirdrop (tokenAirdrop) where
 
 import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
 import Config (Config (..))
-import Data.Map (Map, fromList)
+import Data.Map (Map, fromList, keys)
 import Data.Text (Text)
 import Data.Void (Void)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
@@ -11,6 +11,7 @@ import FakePAB.Constraints (submitTx, waitNSlots)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
+import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
 import Prelude
 
 tokenAirdrop :: Config -> IO (Either Text ())
@@ -28,7 +29,8 @@ tokenAirdrop config = do
               )
               beneficiaries
 
-  mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
+  -- Save Our Consoles
+  -- mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
 
   let addrs :: [PubKeyAddress]
       addrs = address <$> beneficiaries
@@ -44,13 +46,26 @@ tokenAirdrop config = do
         let lookups = Constraints.unspentOutputs utxos
 
         eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
-        -- Wait 60 seconds for the next block
-        putStrLn "Tx submitted, waiting for next block..."
-
-        waitNSlots config 60
-        return $ () <$ eTxId
+        case eTxId of
+          Left err -> pure $ Left err
+          Right txId -> do
+            putStrLn $ "Submitted transaction successfully: " ++ show txId
+            waitUntilHasTxIn config txId
+            pure $ Right ()
     )
     $ zipWith combine2To3 txPairs [1 :: Int ..]
+
+-- | Repeatedly waits a block until we have the inputs we need
+waitUntilHasTxIn :: Config -> TxId -> IO ()
+waitUntilHasTxIn config txId = do
+  putStrLn "Waiting a block then checking own UTxOs..."
+  waitNSlots config 20 -- Wait a block
+  utxos <- utxosAt config $ config.ownAddress
+  if any ((== txId) . txOutRefId) (keys utxos)
+    then putStrLn "Found transaction output in own UTxOs, finished waiting."
+    else do
+      putStrLn "Couldn't find transaction output in own UTxOs, looping."
+      waitUntilHasTxIn config txId
 
 -- | mapM for IO Either that stops on Left
 mapMErr :: (a -> IO (Either Text ())) -> [a] -> IO (Either Text ())
