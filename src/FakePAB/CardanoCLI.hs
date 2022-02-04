@@ -7,6 +7,7 @@ module FakePAB.CardanoCLI (
   queryTip,
   utxosAt,
   submitScript,
+  getCLITxIdFromFile,
 ) where
 
 import Cardano.Api.Shelley (NetworkId (Mainnet, Testnet), NetworkMagic (..))
@@ -127,13 +128,16 @@ utxosAt config address = do
 
 -- | Gets the transaction ID as reported from the CLI - for this can differ due to CLI's balancing
 getCLITxId :: Tx -> IO TxId
-getCLITxId tx = do
+getCLITxId = getCLITxIdFromFile . txToFileName "raw"
+
+getCLITxIdFromFile :: Text -> IO TxId
+getCLITxIdFromFile txPath = do
   callCommand $ ShellCommand "cardano-cli" opts (fromRight "" . parseOnly UtxoParser.txIdParser . Text.pack)
   where
     opts =
       mconcat
         [ ["transaction", "txid"]
-        , ["--tx-body-file", txToFileName "raw" tx]
+        , ["--tx-body-file", txPath]
         ]
 
 -- | Build a tx body and write it to disk

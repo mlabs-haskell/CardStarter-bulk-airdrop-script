@@ -51,7 +51,7 @@ txOutRefParser = do
   pure $ TxOutRef txId txIx
 
 txIdParser :: Parser TxId
-txIdParser = TxId <$> decodeHash (takeWhile (/= ' '))
+txIdParser = TxId <$> decodeHash (takeWhile (\c -> c /= ' ' && c /= '\n'))
 
 chainIndexTxOutParser :: Address -> Parser ChainIndexTxOut
 chainIndexTxOutParser address = do
