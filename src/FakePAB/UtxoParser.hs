@@ -16,6 +16,7 @@ import Data.Attoparsec.Text (
   sepBy,
   signed,
   skipSpace,
+  take,
   takeWhile,
  )
 import Data.Text (Text)
@@ -36,7 +37,7 @@ import Plutus.V1.Ledger.Api (
   CurrencySymbol (..),
  )
 import PlutusTx.Builtins (toBuiltin)
-import Prelude hiding (takeWhile)
+import Prelude hiding (take, takeWhile)
 
 utxoMapParser :: Address -> Parser (TxOutRef, ChainIndexTxOut)
 utxoMapParser address =
@@ -79,10 +80,10 @@ assetClassParser =
   where
     adaAssetClass = Value.assetClass Ada.adaSymbol Ada.adaToken <$ "lovelace"
     noNameAsset = do
-      curSymbol <- CurrencySymbol <$> decodeHash (takeWhile (/= ' '))
+      curSymbol <- CurrencySymbol <$> decodeHash (take 56)
       pure $ Value.assetClass curSymbol ""
     otherAssetClass = do
-      curSymbol <- CurrencySymbol <$> decodeHash (takeWhile (/= '.'))
+      curSymbol <- CurrencySymbol <$> decodeHash (take 56)
       void $ char '.'
       tokenName <- Value.tokenName . encodeUtf8 <$> takeWhile (/= ' ')
       pure $ Value.assetClass curSymbol tokenName
