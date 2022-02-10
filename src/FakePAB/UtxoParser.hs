@@ -19,6 +19,7 @@ import Data.Attoparsec.Text (
   take,
   takeWhile,
  )
+import Data.Char (isSpace)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Ledger (Address (addressCredential))
@@ -52,7 +53,7 @@ txOutRefParser = do
   pure $ TxOutRef txId txIx
 
 txIdParser :: Parser TxId
-txIdParser = TxId <$> decodeHash (takeWhile (\c -> c /= ' ' && c /= '\n'))
+txIdParser = TxId <$> decodeHash (takeWhile $ not . isSpace)
 
 chainIndexTxOutParser :: Address -> Parser ChainIndexTxOut
 chainIndexTxOutParser address = do

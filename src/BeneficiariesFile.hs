@@ -37,21 +37,21 @@ parseBeneficiary conf = toBeneficiary . words
   where
     toBeneficiary :: [Text] -> Either Text Beneficiary
     toBeneficiary [addr, amt, ac] =
-      makeBenficiary addr (parseAmt amt) (parseAsset ac)
+      makeBeneficiary addr (parseAmt amt) (parseAsset ac)
     -- Second arg could be amount or asset class, so we try to parse as asset first, if not, then amount
     -- Then fill in the Beneficiary with the data we have left, failing if we're missing anything
     toBeneficiary [addr, assetOrAmt] = do
       eAssetOrAmt <- parseAssetOrAmt assetOrAmt
-      makeBenficiary
+      makeBeneficiary
         addr
         (maybeToMissing "quantity" $ flip fromRight eAssetOrAmt <$> conf.dropAmount)
         (maybeToMissing "assetclass" $ flip fromLeft eAssetOrAmt <$> conf.assetClass)
     toBeneficiary [addr] =
-      makeBenficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
+      makeBeneficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
     toBeneficiary _ = Left "Invalid number of inputs"
 
-    makeBenficiary :: Text -> Either Text Integer -> Either Text AssetClass -> Either Text Beneficiary
-    makeBenficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> eAmt <*> eAc
+    makeBeneficiary :: Text -> Either Text Integer -> Either Text AssetClass -> Either Text Beneficiary
+    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> eAmt <*> eAc
 
 maybeToMissing :: Text -> Maybe a -> Either Text a
 maybeToMissing name = maybeToRight ("Missing " <> name)

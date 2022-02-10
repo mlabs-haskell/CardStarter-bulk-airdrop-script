@@ -21,5 +21,6 @@ data Config = Config
     dryRun :: !Bool
   , minLovelaces :: Integer
   , fees :: Integer
+  , verbose :: !Bool
   }
   deriving (Show)
