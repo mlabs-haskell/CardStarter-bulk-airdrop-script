@@ -83,4 +83,5 @@ defaultConfig =
     , dryRun = True
     , minLovelaces = 100
     , fees = 100
+    , verbose = False
     }
