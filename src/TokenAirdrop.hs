@@ -15,6 +15,10 @@ import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
 import Prelude
 
+-- Number of blocks to wait before issuing a warning
+blockCountWarning :: Integer
+blockCountWarning = 50
+
 tokenAirdrop :: Config -> IO (Either Text ())
 tokenAirdrop config = do
   beneficiaries <- readBeneficiariesFile config
@@ -53,14 +57,15 @@ tokenAirdrop config = do
           Right txId -> do
             putStrLn $ "Submitted transaction successfully: " ++ show txId
             putStrLn "Waiting for confirmation..."
-            waitUntilHasTxIn config txId
+            waitUntilHasTxIn config 0 txId
             pure $ Right ()
     )
     $ zipWith combine2To3 txPairs [1 :: Int ..]
 
 -- | Repeatedly waits a block until we have the inputs we need
-waitUntilHasTxIn :: Config -> TxId -> IO ()
-waitUntilHasTxIn config txId = do
+waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
+waitUntilHasTxIn config n txId = do
+  when (n > blockCountWarning) $ putStrLn "WARNING: Waited over 50 blocks for transaction to land, it may have failed. (Continuing to wait)"
   when config.verbose $ putStrLn "Waiting a block then checking own UTxOs..."
   waitNSlots config 20 -- Wait a block
   utxos <- utxosAt config $ config.ownAddress
@@ -68,7 +73,7 @@ waitUntilHasTxIn config txId = do
     then putStrLn "Found transaction output in own UTxOs, finished waiting."
     else do
       when config.verbose $ putStrLn "Couldn't find transaction output in own UTxOs, looping."
-      waitUntilHasTxIn config txId
+      waitUntilHasTxIn config (n + 1) txId
 
 -- | mapM for IO Either that stops on Left
 mapMErr :: (a -> IO (Either Text ())) -> [a] -> IO (Either Text ())
