@@ -40,6 +40,8 @@ addressRoundtrip =
       , ("addr1vycujnqrkefsyse5hn445dw3s574s6kgafz0m2x8huj696sw0eckx", Mainnet)
       , ("addr_test1qqcujnqrkefsyse5hn445dw3s574s6kgafz0m2x8huj6964v98n5zvwqrkqwwe2l9dr90myy9v49x6uxnkw6m5as3jhssl70wh", Testnet (NetworkMagic 100))
       , ("addr1qx5zluvgkprgl2t4rw4a0gp2fu068wuf0uqjg0a2smzvxnln5dzfhe09chdz56nfnhshtx02laxklk5zzaw43yvjsnzspatnss", Mainnet)
+      , ("DdzFFzCqrhsiN3r1AkJPYLqi59ARDeq3aEou5u1baprxoDRD6oc2vw1ibfCgzaR6xpShQhiSvRfwXAGrN3HMiy21rTbKL6j9R5kQqzTs", Mainnet) -- First form of Byron address
+      , ("Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi", Mainnet) -- Second form of Byron address
       ]
 
 prop_AddressRoundtrip :: Address -> Config -> Property
@@ -81,4 +83,5 @@ defaultConfig =
     , dryRun = True
     , minLovelaces = 100
     , fees = 100
+    , verbose = False
     }

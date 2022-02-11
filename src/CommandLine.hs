@@ -53,6 +53,7 @@ configParser =
     <*> pDryRun
     <*> pMinLovelaces
     <*> pFees
+    <*> pVerbose
 
 opts :: ParserInfo Config
 opts =
@@ -163,6 +164,11 @@ pFees =
     ( long "fees" <> help "Transaction fees (used for coin selection)"
         <> metavar "NATURAL"
     )
+
+pVerbose :: Parser Bool
+pVerbose =
+  switch
+    (long "verbose" <> help "Log more details about the drop process")
 
 execCommand :: IO Config
 execCommand = execParser opts

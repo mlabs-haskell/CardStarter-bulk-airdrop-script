@@ -2,6 +2,7 @@ module FakePAB.UtxoParser (
   chainIndexTxOutParser,
   utxoMapParser,
   assetClassParser,
+  txIdParser,
 ) where
 
 import Control.Applicative ((<|>))
@@ -15,8 +16,10 @@ import Data.Attoparsec.Text (
   sepBy,
   signed,
   skipSpace,
+  take,
   takeWhile,
  )
+import Data.Char (isSpace)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Ledger (Address (addressCredential))
@@ -35,7 +38,7 @@ import Plutus.V1.Ledger.Api (
   CurrencySymbol (..),
  )
 import PlutusTx.Builtins (toBuiltin)
-import Prelude hiding (takeWhile)
+import Prelude hiding (take, takeWhile)
 
 utxoMapParser :: Address -> Parser (TxOutRef, ChainIndexTxOut)
 utxoMapParser address =
@@ -43,11 +46,14 @@ utxoMapParser address =
 
 txOutRefParser :: Parser TxOutRef
 txOutRefParser = do
-  txId <- TxId <$> decodeHash (takeWhile (/= ' '))
+  txId <- txIdParser
 
   skipSpace
   txIx <- decimal
   pure $ TxOutRef txId txIx
+
+txIdParser :: Parser TxId
+txIdParser = TxId <$> decodeHash (takeWhile $ not . isSpace)
 
 chainIndexTxOutParser :: Address -> Parser ChainIndexTxOut
 chainIndexTxOutParser address = do
@@ -75,10 +81,10 @@ assetClassParser =
   where
     adaAssetClass = Value.assetClass Ada.adaSymbol Ada.adaToken <$ "lovelace"
     noNameAsset = do
-      curSymbol <- CurrencySymbol <$> decodeHash (takeWhile (/= ' '))
+      curSymbol <- CurrencySymbol <$> decodeHash (take 56)
       pure $ Value.assetClass curSymbol ""
     otherAssetClass = do
-      curSymbol <- CurrencySymbol <$> decodeHash (takeWhile (/= '.'))
+      curSymbol <- CurrencySymbol <$> decodeHash (take 56)
       void $ char '.'
       tokenName <- Value.tokenName . encodeUtf8 <$> takeWhile (/= ' ')
       pure $ Value.assetClass curSymbol tokenName

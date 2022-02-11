@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module FakePAB.Constraints (submitTx, waitNSlots) where
+module FakePAB.Constraints (submitTx, waitNSlots, logRecipientsUtxos) where
 
 import Config (Config)
 import Control.Concurrent (threadDelay)
@@ -24,6 +24,7 @@ import Ledger.Tx (ChainIndexTxOut (..), Tx (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
 import Ledger.Typed.Scripts.Validators (DatumType, RedeemerType)
 import Ledger.Value qualified as Value
+import Plutus.V1.Ledger.Api (TxId)
 import PlutusTx (FromData, ToData)
 import PlutusTx.Builtins (fromBuiltin)
 import Prelude
@@ -35,7 +36,7 @@ submitTx ::
   Map PubKeyHash PubKeyAddress ->
   ScriptLookups a ->
   TxConstraints (RedeemerType a) (DatumType a) ->
-  IO (Either Text ())
+  IO (Either Text TxId)
 submitTx config addressMap lookups constraints = do
   putStrLn "Starting contract"
   let eitherUnbalancedTx = mkTx lookups constraints
@@ -46,13 +47,7 @@ submitTx config addressMap lookups constraints = do
     Right unbalancedTx@UnbalancedTx {unBalancedTxTx = tx} -> do
       let tx' = useFullAddresses addressMap tx
 
-      result <- submitScript config unbalancedTx {unBalancedTxTx = tx'}
-      -- Wait 40 seconds for the next block
-
-      putStrLn "Tx submitted, waiting for next block..."
-      waitNSlots config 1
-      logRecipientsUtxos config tx'
-      pure result
+      submitScript config unbalancedTx {unBalancedTxTx = tx'}
 
 -- | Replaces
 useFullAddresses :: Map PubKeyHash PubKeyAddress -> Tx -> Tx
