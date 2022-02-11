@@ -65,7 +65,7 @@ tokenAirdrop config = do
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
 waitUntilHasTxIn config n txId = do
-  when (n > blockCountWarning) $ putStrLn "WARNING: Waited over 50 blocks for transaction to land, it may have failed. (Continuing to wait)"
+  when (n >= blockCountWarning) . putStrLn $ "WARNING: Waited " ++ show n ++ " blocks for transaction to land, it may have failed. (Continuing to wait)"
   when config.verbose $ putStrLn "Waiting a block then checking own UTxOs..."
   waitNSlots config 20 -- Wait a block
   utxos <- utxosAt config $ config.ownAddress
