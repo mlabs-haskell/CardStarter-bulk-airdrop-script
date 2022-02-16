@@ -5,10 +5,10 @@ import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Bifunctor (first)
 import Data.Either.Combinators (fromLeft, fromRight, maybeToRight)
+import Data.Ratio (Ratio, denominator, numerator)
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
-import Data.Ratio (Ratio, numerator, denominator)
 import FakePAB.Address (PubKeyAddress, deserialiseAddress, toPubKeyAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified

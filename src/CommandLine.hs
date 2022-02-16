@@ -7,8 +7,8 @@ import Config (Config (..))
 import Control.Applicative (optional, (<**>), (<|>))
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
-import Data.Text qualified as Text
 import Data.Ratio (Ratio)
+import Data.Text qualified as Text
 import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified
@@ -172,7 +172,9 @@ pDecimalPlaces =
   option
     auto
     ( long "decimal-places" <> help "Shift all values to the left by this many decimal places"
-        <> showDefault <> value 0 <> metavar "NATURAL"
+        <> showDefault
+        <> value 0
+        <> metavar "NATURAL"
     )
 
 pVerbose :: Parser Bool

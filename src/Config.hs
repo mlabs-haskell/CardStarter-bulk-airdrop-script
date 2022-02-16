@@ -1,10 +1,10 @@
 module Config (Config (..)) where
 
 import Cardano.Api (NetworkId)
+import Data.Ratio (Ratio)
 import Ledger.Address (Address)
 import Ledger.Value (AssetClass)
 import Prelude
-import Data.Ratio (Ratio)
 
 data Config = Config
   { network :: !NetworkId
