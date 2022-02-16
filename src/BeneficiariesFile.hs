@@ -8,6 +8,7 @@ import Data.Either.Combinators (fromLeft, fromRight, maybeToRight)
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
+import Data.Ratio (Ratio, numerator, denominator)
 import FakePAB.Address (PubKeyAddress, deserialiseAddress, toPubKeyAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified
@@ -50,16 +51,19 @@ parseBeneficiary conf = toBeneficiary . words
       makeBeneficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
     toBeneficiary _ = Left "Invalid number of inputs"
 
-    makeBeneficiary :: Text -> Either Text Integer -> Either Text AssetClass -> Either Text Beneficiary
-    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> eAmt <*> eAc
+    scaleAmount :: Ratio Integer -> Integer
+    scaleAmount r = numerator r * conf.decimalPlaces `div` denominator r
+
+    makeBeneficiary :: Text -> Either Text (Ratio Integer) -> Either Text AssetClass -> Either Text Beneficiary
+    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> fmap scaleAmount eAmt <*> eAc
 
 maybeToMissing :: Text -> Maybe a -> Either Text a
 maybeToMissing name = maybeToRight ("Missing " <> name)
 
-parseAmt :: Text -> Either Text Integer
+parseAmt :: Text -> Either Text (Ratio Integer)
 parseAmt = maybeToRight "Invalid amount" . readMaybe . Text.unpack
 
-parseAssetOrAmt :: Text -> Either Text (Either AssetClass Integer)
+parseAssetOrAmt :: Text -> Either Text (Either AssetClass (Ratio Integer))
 parseAssetOrAmt str = (Left <$> parseAsset str) <> (Right <$> parseAmt str)
 
 parseAsset :: Text -> Either Text AssetClass

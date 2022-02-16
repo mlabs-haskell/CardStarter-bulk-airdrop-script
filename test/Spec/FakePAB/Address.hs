@@ -83,5 +83,6 @@ defaultConfig =
     , dryRun = True
     , minLovelaces = 100
     , fees = 100
+    , decimalPlaces = 0
     , verbose = False
     }

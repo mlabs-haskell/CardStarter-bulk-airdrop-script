@@ -8,6 +8,7 @@ import Control.Applicative (optional, (<**>), (<|>))
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
 import Data.Text qualified as Text
+import Data.Ratio (Ratio)
 import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified
@@ -53,6 +54,7 @@ configParser =
     <*> pDryRun
     <*> pMinLovelaces
     <*> pFees
+    <*> pDecimalPlaces
     <*> pVerbose
 
 opts :: ParserInfo Config
@@ -118,11 +120,11 @@ pAssetClass =
     (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
     (long "asset-class" <> help "Token asset class (overrides beneficiaries file config)" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
 
-pDropAmount :: Parser Integer
+pDropAmount :: Parser (Ratio Integer)
 pDropAmount =
   option
     auto
-    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary (overrides beneficiaries file config)" <> metavar "NATURAL")
+    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary (overrides beneficiaries file config)" <> metavar "RATIONAL")
 
 pBeneficiariesFile :: Parser FilePath
 pBeneficiariesFile =
@@ -163,6 +165,14 @@ pFees =
     auto
     ( long "fees" <> help "Transaction fees (used for coin selection)"
         <> metavar "NATURAL"
+    )
+
+pDecimalPlaces :: Parser Integer
+pDecimalPlaces =
+  option
+    auto
+    ( long "decimal-places" <> help "Shift all values to the left by this many decimal places"
+        <> showDefault <> value 0 <> metavar "NATURAL"
     )
 
 pVerbose :: Parser Bool
