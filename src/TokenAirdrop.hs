@@ -13,6 +13,7 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
+import System.IO (hFlush, stdout)
 import Prelude
 
 -- Number of blocks to wait before issuing a warning
@@ -42,25 +43,50 @@ tokenAirdrop config = do
       addrs = address <$> beneficiaries
       pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
       pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
+      indexedTxs :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)]
+      indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
-  mapMErr
-    ( \(tx, bs, i) -> do
-        putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
-        mapM_ print bs
+  if config.live
+    then do
+      confirm <- confirmTxSubmission
+      if confirm
+        then processTransactions indexedTxs pubKeyAddressMap
+        else pure $ Left "Operation stopped by user"
+    else processTransactions indexedTxs pubKeyAddressMap
+  where
+    confirmTxSubmission :: IO Bool
+    confirmTxSubmission = do
+      putStr "Running in live mode. Are you sure you want to submit the transactions? [yes/no] "
+      hFlush stdout
+      response <- getLine
+      case response of
+        "yes" -> pure True
+        "no" -> pure False
+        _ -> do
+          putStrLn "Answer is not valid"
+          confirmTxSubmission
 
-        utxos <- utxosAt config $ config.ownAddress
-        let lookups = Constraints.unspentOutputs utxos
+    processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
+    processTransactions txs pubKeyAddressMap =
+      mapMErr
+        ( \(tx, bs, i) -> do
+            putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
+            mapM_ print bs
 
-        eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
-        case eTxId of
-          Left err -> pure $ Left err
-          Right txId -> do
-            putStrLn $ "Submitted transaction successfully: " ++ show txId
-            putStrLn "Waiting for confirmation..."
-            waitUntilHasTxIn config 0 txId
-            pure $ Right ()
-    )
-    $ zipWith combine2To3 txPairs [1 :: Int ..]
+            utxos <- utxosAt config $ config.ownAddress
+            let lookups = Constraints.unspentOutputs utxos
+
+            eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
+            case eTxId of
+              Left err -> pure $ Left err
+              Right txId -> do
+                when config.live $ do
+                  putStrLn $ "Submitted transaction successfully: " ++ show txId
+                  putStrLn "Waiting for confirmation..."
+                  waitUntilHasTxIn config 0 txId
+                pure $ Right ()
+        )
+        txs
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()

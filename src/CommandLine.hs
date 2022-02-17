@@ -50,7 +50,7 @@ configParser =
     <*> optional pAssetClass
     <*> optional pDropAmount
     <*> pBeneficiaryPerTx
-    <*> pDryRun
+    <*> pLive
     <*> pMinLovelaces
     <*> pFees
     <*> pVerbose
@@ -144,10 +144,10 @@ pBeneficiaryPerTx =
         <> metavar "NATURAL"
     )
 
-pDryRun :: Parser Bool
-pDryRun =
+pLive :: Parser Bool
+pLive =
   switch
-    (long "dry-run" <> help "Build tx body and tx, but don't submit them")
+    (long "live" <> help "Pass this flag to submit the transaction. Otherwise it is just printed to stdout")
 
 pMinLovelaces :: Parser Integer
 pMinLovelaces =
