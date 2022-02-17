@@ -52,7 +52,7 @@ parseBeneficiary conf = toBeneficiary . words
     toBeneficiary _ = Left "Invalid number of inputs"
 
     scaleAmount :: Ratio Integer -> Integer
-    scaleAmount r = numerator r * conf.decimalPlaces `div` denominator r
+    scaleAmount r = numerator r * (10 ^ conf.decimalPlaces) `div` denominator r
 
     makeBeneficiary :: Text -> Either Text (Ratio Integer) -> Either Text AssetClass -> Either Text Beneficiary
     makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> fmap scaleAmount eAmt <*> eAc
