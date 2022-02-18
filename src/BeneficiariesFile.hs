@@ -4,7 +4,7 @@ import Config (Config (..))
 import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Bifunctor (first)
-import Data.Either.Combinators (fromLeft, fromRight, mapLeft, maybeToRight)
+import Data.Either.Combinators (fromLeft, fromRight, maybeToRight)
 import Data.Scientific
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
