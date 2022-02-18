@@ -7,7 +7,7 @@ import Config (Config (..))
 import Control.Applicative (optional, (<**>), (<|>))
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
-import Data.Ratio (Ratio)
+import Data.Scientific (Scientific)
 import Data.Text qualified as Text
 import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
@@ -55,6 +55,7 @@ configParser =
     <*> pMinLovelaces
     <*> pFees
     <*> pDecimalPlaces
+    <*> pTruncate
     <*> pVerbose
 
 opts :: ParserInfo Config
@@ -120,7 +121,7 @@ pAssetClass =
     (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
     (long "asset-class" <> help "Token asset class (overrides beneficiaries file config)" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
 
-pDropAmount :: Parser (Ratio Integer)
+pDropAmount :: Parser Scientific
 pDropAmount =
   option
     auto
@@ -171,11 +172,16 @@ pDecimalPlaces :: Parser Integer
 pDecimalPlaces =
   option
     auto
-    ( long "decimal-places" <> help "Shift all values to the left by this many decimal places"
+    ( long "decimal-places" <> help "Shift all token amounts to the left by this many decimal places"
         <> showDefault
         <> value 0
         <> metavar "NATURAL"
     )
+
+pTruncate :: Parser Bool
+pTruncate =
+  switch
+    (long "truncate" <> help "Allow discarding the decimal part of token amounts. In effect, always rounds down to the nearest natural number.")
 
 pVerbose :: Parser Bool
 pVerbose =

@@ -84,5 +84,6 @@ defaultConfig =
     , minLovelaces = 100
     , fees = 100
     , decimalPlaces = 0
+    , truncate = False
     , verbose = False
     }

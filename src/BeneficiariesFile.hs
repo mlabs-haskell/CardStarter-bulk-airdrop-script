@@ -1,11 +1,11 @@
-module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset) where
+module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, parseContent) where
 
 import Config (Config (..))
 import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Bifunctor (first)
-import Data.Either.Combinators (fromLeft, fromRight, maybeToRight)
-import Data.Ratio (Ratio, denominator, numerator)
+import Data.Either.Combinators (fromLeft, fromRight, mapLeft, maybeToRight)
+import Data.Scientific
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
@@ -51,19 +51,32 @@ parseBeneficiary conf = toBeneficiary . words
       makeBeneficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
     toBeneficiary _ = Left "Invalid number of inputs"
 
-    scaleAmount :: Ratio Integer -> Integer
-    scaleAmount r = numerator r * (10 ^ conf.decimalPlaces) `div` denominator r
+    scaleAmount :: Scientific -> Either Text Integer
+    scaleAmount amt =
+      case scientificToInteger $ amt * (10 ^ conf.decimalPlaces) of
+        Right amti -> Right amti
+        Left (amtd, _) | conf.truncate -> Right amtd
+        Left (_, amtc) -> Left . Text.pack $ "Too few decimal places resulted in truncation. " <> show amt <> " lost " <> show amtc
 
-    makeBeneficiary :: Text -> Either Text (Ratio Integer) -> Either Text AssetClass -> Either Text Beneficiary
-    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> fmap scaleAmount eAmt <*> eAc
+    makeBeneficiary :: Text -> Either Text Scientific -> Either Text AssetClass -> Either Text Beneficiary
+    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount) <*> eAc
+
+-- Converts a Scientific to an Integer. If truncation occurs, return the truncated value and the approximate change
+scientificToInteger :: Scientific -> Either (Integer, Double) Integer
+scientificToInteger s = mapLeft (const truncated) (floatingOrInteger @Float s)
+  where
+    b10e = base10Exponent s
+
+    -- For truncated to be evaluated, the exponent must have been negative
+    truncated = (*) (10 ^^ b10e) . fromInteger <$> coefficient s `divMod` (10 ^ negate b10e)
 
 maybeToMissing :: Text -> Maybe a -> Either Text a
 maybeToMissing name = maybeToRight ("Missing " <> name)
 
-parseAmt :: Text -> Either Text (Ratio Integer)
+parseAmt :: Text -> Either Text Scientific
 parseAmt = maybeToRight "Invalid amount" . readMaybe . Text.unpack
 
-parseAssetOrAmt :: Text -> Either Text (Either AssetClass (Ratio Integer))
+parseAssetOrAmt :: Text -> Either Text (Either AssetClass Scientific)
 parseAssetOrAmt str = (Left <$> parseAsset str) <> (Right <$> parseAmt str)
 
 parseAsset :: Text -> Either Text AssetClass
