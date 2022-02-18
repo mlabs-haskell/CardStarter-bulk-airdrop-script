@@ -54,21 +54,21 @@ parseBeneficiary conf = toBeneficiary . words
     scaleAmount :: Scientific -> Either Text Integer
     scaleAmount amt =
       case scientificToInteger $ amt * (10 ^ conf.decimalPlaces) of
-        Right amti -> Right amti
-        Left (amtd, _) | conf.truncate -> Right amtd
-        Left (_, amtc) -> Left . Text.pack $ "Too few decimal places resulted in truncation. " <> show amt <> " lost " <> show amtc
+        (amt', Nothing) -> Right amt'
+        (amt', Just _) | conf.truncate -> Right amt'
+        (_, Just amtc) -> Left . Text.pack $ "Too few decimal places resulted in truncation. " <> show amt <> " lost " <> show amtc
 
     makeBeneficiary :: Text -> Either Text Scientific -> Either Text AssetClass -> Either Text Beneficiary
     makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount) <*> eAc
 
--- Converts a Scientific to an Integer. If truncation occurs, return the truncated value and the approximate change
-scientificToInteger :: Scientific -> Either (Integer, Double) Integer
-scientificToInteger s = mapLeft (const truncated) (floatingOrInteger @Float s)
+-- Converts a Scientific to an Integer. If truncation occurs, return the truncated value and the change
+scientificToInteger :: Scientific -> (Integer, Maybe Scientific)
+scientificToInteger s = either (const truncated) (,Nothing) (floatingOrInteger @Float s)
   where
     b10e = base10Exponent s
 
     -- For truncated to be evaluated, the exponent must have been negative
-    truncated = (*) (10 ^^ b10e) . fromInteger <$> coefficient s `divMod` (10 ^ negate b10e)
+    truncated = Just . (*) (10 ^^ b10e) . fromInteger <$> coefficient s `divMod` (10 ^ negate b10e)
 
 maybeToMissing :: Text -> Maybe a -> Either Text a
 maybeToMissing name = maybeToRight ("Missing " <> name)
