@@ -181,7 +181,7 @@ pDecimalPlaces =
 pTruncate :: Parser Bool
 pTruncate =
   switch
-    (long "truncate" <> help "Allow discarding the decimal part of token amounts. In effect, always rounds down to the nearest natural number.")
+    (long "truncate" <> help "Allow discarding the decimal part of token amounts. In effect, always rounds down to the nearest natural number")
 
 pVerbose :: Parser Bool
 pVerbose =
