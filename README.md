@@ -32,8 +32,9 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
                      (--own-address ADDRESS | --own-pub-key-hash PUB_KEY_HASH)
                      [--signing-key-file FILENAME]
                      [--asset-class CURRENCY_SYMBOL.TOKEN_NAME]
-                     [--drop-amount NATURAL] --beneficiaries-per-tx NATURAL
+                     [--drop-amount RATIONAL] --beneficiaries-per-tx NATURAL
                      [--dry-run] --min-lovelaces NATURAL --fees NATURAL
+                     [--decimal-places NATURAL] [--truncate] [--verbose]
   CLI tool to simplify sending native tokens to multiple users
 ```
 
@@ -47,8 +48,10 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 - `drop-amount`: Amount of tokens to send to each beneficiary (overrides beneficiaries file config)
 - `beneficiaryPerTx`: This controls how many transaction outputs we batch together. In case the tranaction exceeds the size limit, try to change this value
 - `dryRun`: Builds transactions without actually submitting them on chain
-- `min-lovelaces`: Minimun lovelace amount for each utxo (change this it you get a Minimum required UTxO error)
+- `min-lovelaces`: Minimum lovelace amount for each utxo (change this it you get a Minimum required UTxO error)
 - `fees`: Transaction fees, this is only used for coin selection, the actual fee is calculated by the cardano-cli
+- `decimal-places`: Scale all token amounts by this many decimal places (value * 10^decimal-places)
+- `truncate`: Allow rounding down token amounts to the nearest natural number when there is a decimal part
 
 ### Beneficiaries format
 
