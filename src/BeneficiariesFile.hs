@@ -68,7 +68,8 @@ scientificToInteger s = either (const truncated) (,Nothing) (floatingOrInteger @
     b10e = base10Exponent s
 
     -- For truncated to be evaluated, the exponent must have been negative
-    truncated = Just . (*) (10 ^^ b10e) . fromInteger <$> coefficient s `divMod` (10 ^ negate b10e)
+    (quotient, remainder) = coefficient s `divMod` (10 ^ negate b10e)
+    truncated = (quotient, Just $ fromInteger remainder * (10 ^^ b10e))
 
 maybeToMissing :: Text -> Maybe a -> Either Text a
 maybeToMissing name = maybeToRight ("Missing " <> name)
