@@ -53,6 +53,8 @@ configParser =
     <*> pDryRun
     <*> pMinLovelaces
     <*> pFees
+    <*> pCurrentBeneficiariesLog
+    <*> pRemainingBeneficiariesLog
     <*> pVerbose
 
 opts :: ParserInfo Config
@@ -164,6 +166,18 @@ pFees =
     ( long "fees" <> help "Transaction fees (used for coin selection)"
         <> metavar "NATURAL"
     )
+
+pCurrentBeneficiariesLog :: Parser FilePath
+pCurrentBeneficiariesLog =
+  option
+    auto
+    (long "current-beneficiaries-log" <> help "File to write the current beneficiaries when the transaction fails" <> showDefault <> value "log/current-beneficiaries.log" <> metavar "FILENAME")
+
+pRemainingBeneficiariesLog :: Parser FilePath
+pRemainingBeneficiariesLog =
+  option
+    auto
+    (long "remaining-beneficiaries-log" <> help "File to write the remaining beneficiaries when a previous transaction has failed" <> showDefault <> value "log/remaining-beneficiaries.log" <> metavar "FILENAME")
 
 pVerbose :: Parser Bool
 pVerbose =

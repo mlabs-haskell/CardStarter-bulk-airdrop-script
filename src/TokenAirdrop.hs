@@ -3,6 +3,7 @@ module TokenAirdrop (tokenAirdrop) where
 import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
 import Config (Config (..))
 import Control.Monad (when)
+import Data.List.NonEmpty qualified as NEL
 import Data.Map (Map, fromList, keys)
 import Data.Text (Text)
 import Data.Void (Void)
@@ -43,24 +44,33 @@ tokenAirdrop config = do
       pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
       pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
 
-  mapMErr
-    ( \(tx, bs, i) -> do
-        putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
-        mapM_ print bs
+  result <-
+    mapMErr
+      ( \(tx, bs, i) -> do
+          putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
+          mapM_ print bs
 
-        utxos <- utxosAt config $ config.ownAddress
-        let lookups = Constraints.unspentOutputs utxos
+          utxos <- utxosAt config $ config.ownAddress
+          let lookups = Constraints.unspentOutputs utxos
 
-        eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
-        case eTxId of
-          Left err -> pure $ Left err
-          Right txId -> do
-            putStrLn $ "Submitted transaction successfully: " ++ show txId
-            putStrLn "Waiting for confirmation..."
-            waitUntilHasTxIn config 0 txId
-            pure $ Right ()
-    )
-    $ zipWith combine2To3 txPairs [1 :: Int ..]
+          eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
+          case eTxId of
+            Left err -> pure $ Left err
+            Right txId -> do
+              putStrLn $ "Submitted transaction successfully: " ++ show txId
+              putStrLn "Waiting for confirmation..."
+              waitUntilHasTxIn config 0 txId
+              pure $ Right ()
+      )
+      $ zipWith combine2To3 txPairs [1 :: Int ..]
+
+  case result of
+    Right _ -> pure $ Right ()
+    Left (msg, failed NEL.:| remaining) -> do
+      let showBeneficiaries (_, bens, _) = fmap show bens
+      writeFile config.currentBeneficiariesLog . unlines $ showBeneficiaries failed
+      writeFile config.remainingBeneficiariesLog . unlines $ remaining >>= showBeneficiaries
+      pure $ Left msg
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
@@ -76,8 +86,13 @@ waitUntilHasTxIn config n txId = do
       waitUntilHasTxIn config (n + 1) txId
 
 -- | mapM for IO Either that stops on Left
-mapMErr :: (a -> IO (Either Text ())) -> [a] -> IO (Either Text ())
-mapMErr f = foldr (\x acc -> f x >>= either (pure . Left) (const acc)) (pure $ Right ())
+mapMErr :: (a -> IO (Either Text ())) -> [a] -> IO (Either (Text, NEL.NonEmpty a) ())
+mapMErr f = snd . foldr go ([], pure $ Right ())
+  where
+    go x acc =
+      ( x : fst acc
+      , f x >>= either (pure . Left . (,x NEL.:| fst acc)) (const $ snd acc)
+      )
 
 combine2To3 :: (a, b) -> c -> (a, b, c)
 combine2To3 (a, b) = (a,b,)
