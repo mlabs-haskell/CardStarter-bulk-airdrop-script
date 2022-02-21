@@ -1,9 +1,10 @@
 module Config (Config (..)) where
 
 import Cardano.Api (NetworkId)
+import Data.Scientific (Scientific)
 import Ledger.Address (Address)
 import Ledger.Value (AssetClass)
-import Prelude
+import Prelude hiding (truncate)
 
 data Config = Config
   { network :: !NetworkId
@@ -14,13 +15,15 @@ data Config = Config
   , ownAddress :: !Address
   , signingKeyFile :: !FilePath
   , assetClass :: !(Maybe AssetClass)
-  , dropAmount :: !(Maybe Integer)
+  , dropAmount :: !(Maybe Scientific)
   , -- | Grouping multiple beneficiaries to a single transaction for optimising fees
     beneficiaryPerTx :: !Int
   , -- | Live mode will actually submit the tx. Otherwise it is just built and printed for debugging purpose
     live :: !Bool
   , minLovelaces :: Integer
   , fees :: Integer
+  , decimalPlaces :: Integer
+  , truncate :: !Bool
   , verbose :: !Bool
   }
   deriving (Show)
