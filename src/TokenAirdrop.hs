@@ -2,10 +2,12 @@ module TokenAirdrop (tokenAirdrop) where
 
 import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
 import Config (Config (..))
+import Control.Exception (SomeException, try)
 import Control.Monad (when)
+import Data.Either.Combinators (mapLeft)
 import Data.List.NonEmpty qualified as NEL
 import Data.Map (Map, fromList, keys)
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Data.Void (Void)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
@@ -56,11 +58,12 @@ tokenAirdrop config = do
           eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
           case eTxId of
             Left err -> pure $ Left err
-            Right txId -> do
-              putStrLn $ "Submitted transaction successfully: " ++ show txId
-              putStrLn "Waiting for confirmation..."
-              waitUntilHasTxIn config 0 txId
-              pure $ Right ()
+            Right txId ->
+              let handler _ = pack $ "Failed to confirm transaction: " ++ show txId
+               in fmap (mapLeft handler) . try @SomeException $ do
+                    putStrLn $ "Submitted transaction successfully: " ++ show txId
+                    putStrLn "Waiting for confirmation..."
+                    waitUntilHasTxIn config 0 txId
       )
       $ zipWith combine2To3 txPairs [1 :: Int ..]
 
