@@ -18,8 +18,8 @@ data Config = Config
   , dropAmount :: !(Maybe Scientific)
   , -- | Grouping multiple beneficiaries to a single transaction for optimising fees
     beneficiaryPerTx :: !Int
-  , -- | Dry run mode will build the tx, but skip the submit step
-    dryRun :: !Bool
+  , -- | Live mode will actually submit the tx. Otherwise it is just built and printed for debugging purpose
+    live :: !Bool
   , minLovelaces :: Integer
   , fees :: Integer
   , decimalPlaces :: Integer
