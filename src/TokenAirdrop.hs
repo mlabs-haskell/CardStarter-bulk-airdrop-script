@@ -94,11 +94,12 @@ tokenAirdrop config = do
       case result of
         Right _ -> pure $ Right ()
         Left (msg, failed NEL.:| remaining) -> do
-          let showBeneficiaries (_, bens, _) = fmap show bens
-          createDirectoryIfMissing True $ takeDirectory config.currentBeneficiariesLog
-          writeFile config.currentBeneficiariesLog . unlines $ showBeneficiaries failed
-          createDirectoryIfMissing True $ takeDirectory config.remainingBeneficiariesLog
-          writeFile config.remainingBeneficiariesLog . unlines $ remaining >>= showBeneficiaries
+          when config.live $ do
+            let showBeneficiaries (_, bens, _) = fmap show bens
+            createDirectoryIfMissing True $ takeDirectory config.currentBeneficiariesLog
+            writeFile config.currentBeneficiariesLog . unlines $ showBeneficiaries failed
+            createDirectoryIfMissing True $ takeDirectory config.remainingBeneficiariesLog
+            writeFile config.remainingBeneficiariesLog . unlines $ remaining >>= showBeneficiaries
           pure $ Left msg
 
 -- | Repeatedly waits a block until we have the inputs we need
