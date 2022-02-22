@@ -18,6 +18,7 @@ import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (takeDirectory)
+import System.IO (hFlush, stdout)
 import Prelude
 
 -- Number of blocks to wait before issuing a warning
@@ -47,11 +48,34 @@ tokenAirdrop config = do
       addrs = address <$> beneficiaries
       pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
       pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
+      indexedTxs :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)]
+      indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
-  result <-
-    mapMErr
-      ( \(tx, bs, i) -> do
-          putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
+  if config.live
+    then do
+      confirm <- confirmTxSubmission
+      if confirm
+        then processTransactions indexedTxs pubKeyAddressMap
+        else pure $ Left "Operation stopped by user"
+    else processTransactions indexedTxs pubKeyAddressMap
+  where
+    confirmTxSubmission :: IO Bool
+    confirmTxSubmission = do
+      putStr "Running in live mode. Are you sure you want to submit the transactions? [yes/no] "
+      hFlush stdout
+      response <- getLine
+      case response of
+        "yes" -> pure True
+        "no" -> pure False
+        _ -> do
+          putStrLn "Answer is not valid"
+          confirmTxSubmission
+
+    processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
+    processTransactions txs pubKeyAddressMap = do
+      result <- flip mapMErr txs $
+        \(tx, bs, i) -> do
+          putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
           mapM_ print bs
 
           utxos <- utxosAt config $ config.ownAddress
@@ -60,24 +84,22 @@ tokenAirdrop config = do
           eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
           case eTxId of
             Left err -> pure $ Left err
-            Right txId ->
+            Right txId -> do
               let handler _ = pack $ "Failed to confirm transaction: " ++ show txId
-               in fmap (mapLeft handler) . try @SomeException $ do
-                    putStrLn $ "Submitted transaction successfully: " ++ show txId
-                    putStrLn "Waiting for confirmation..."
-                    waitUntilHasTxIn config 0 txId
-      )
-      $ zipWith combine2To3 txPairs [1 :: Int ..]
+              fmap (mapLeft handler) . try @SomeException . when config.live $ do
+                putStrLn $ "Submitted transaction successfully: " ++ show txId
+                putStrLn "Waiting for confirmation..."
+                waitUntilHasTxIn config 0 txId
 
-  case result of
-    Right _ -> pure $ Right ()
-    Left (msg, failed NEL.:| remaining) -> do
-      let showBeneficiaries (_, bens, _) = fmap show bens
-      createDirectoryIfMissing True $ takeDirectory config.currentBeneficiariesLog
-      writeFile config.currentBeneficiariesLog . unlines $ showBeneficiaries failed
-      createDirectoryIfMissing True $ takeDirectory config.remainingBeneficiariesLog
-      writeFile config.remainingBeneficiariesLog . unlines $ remaining >>= showBeneficiaries
-      pure $ Left msg
+      case result of
+        Right _ -> pure $ Right ()
+        Left (msg, failed NEL.:| remaining) -> do
+          let showBeneficiaries (_, bens, _) = fmap show bens
+          createDirectoryIfMissing True $ takeDirectory config.currentBeneficiariesLog
+          writeFile config.currentBeneficiariesLog . unlines $ showBeneficiaries failed
+          createDirectoryIfMissing True $ takeDirectory config.remainingBeneficiariesLog
+          writeFile config.remainingBeneficiariesLog . unlines $ remaining >>= showBeneficiaries
+          pure $ Left msg
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
