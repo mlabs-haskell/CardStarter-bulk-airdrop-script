@@ -78,13 +78,13 @@ submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
       signTx preparedTx config.signingKeyFile
       txId <- getCLITxId preparedTx
 
-      if config.dryRun
+      if config.live
         then do
-          putStrLn $ "Dry run, not submitting transaction: " <> show txId
-          pure $ Right txId
-        else do
           putStrLn $ "Submitting transaction: " <> show txId
           fmap (txId <$) $ submitTx preparedTx config
+        else do
+          putStrLn $ "Dry run, not submitting transaction: " <> show txId
+          pure $ Right txId
 
 data Tip = Tip
   { epoch :: Integer

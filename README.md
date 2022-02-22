@@ -20,7 +20,7 @@ cabal run token-airdrop -- --testnet-magic 1097911063 \
   --beneficiaries-per-tx 200 \
   --min-lovelaces 1379280 \
   --fees 70921796 \
-  --dry-run
+  --live
 ```
 
 ### Command parameters
@@ -33,7 +33,7 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
                      [--signing-key-file FILENAME]
                      [--asset-class CURRENCY_SYMBOL.TOKEN_NAME]
                      [--drop-amount RATIONAL] --beneficiaries-per-tx NATURAL
-                     [--dry-run] --min-lovelaces NATURAL --fees NATURAL
+                     [--live] --min-lovelaces NATURAL --fees NATURAL
                      [--decimal-places NATURAL] [--truncate] [--verbose]
   CLI tool to simplify sending native tokens to multiple users
 ```
@@ -47,7 +47,7 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 - `asset-class`: Token asset class (overrides beneficiaries file config)
 - `drop-amount`: Amount of tokens to send to each beneficiary (overrides beneficiaries file config)
 - `beneficiaryPerTx`: This controls how many transaction outputs we batch together. In case the tranaction exceeds the size limit, try to change this value
-- `dryRun`: Builds transactions without actually submitting them on chain
+- `live`: Pass this flag to submit the transaction. Otherwise it is just printed to stdout
 - `min-lovelaces`: Minimum lovelace amount for each utxo (change this it you get a Minimum required UTxO error)
 - `fees`: Transaction fees, this is only used for coin selection, the actual fee is calculated by the cardano-cli
 - `decimal-places`: Scale all token amounts by this many decimal places (value * 10^decimal-places)

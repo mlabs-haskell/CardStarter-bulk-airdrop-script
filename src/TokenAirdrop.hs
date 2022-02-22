@@ -15,6 +15,7 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
+import System.IO (hFlush, stdout)
 import Prelude
 
 -- Number of blocks to wait before issuing a warning
@@ -43,15 +44,39 @@ tokenAirdrop config = do
       addrs = address <$> beneficiaries
       pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
       pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
+      indexedTxs :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)]
+      indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
-  -- Before we start submitting transactions, first check we have enough to pay out to all beneficiaries
-  balanced <- checkBalance @Void config pubKeyAddressMap allConstraints
-  case balanced of
-    Left e -> pure $ Left e
-    _ -> do
+  if config.live
+    then do
+      confirm <- confirmTxSubmission
+      if confirm
+        then processTransactions indexedTxs pubKeyAddressMap
+        else pure $ Left "Operation stopped by user"
+    else do
+      -- Before we start submitting transactions, first check we have enough to pay out to all beneficiaries
+      balanced <- checkBalance @Void config pubKeyAddressMap allConstraints
+      case balanced of
+        Left e -> pure $ Left e
+        _ -> processTransactions indexedTxs pubKeyAddressMap
+  where
+    confirmTxSubmission :: IO Bool
+    confirmTxSubmission = do
+      putStr "Running in live mode. Are you sure you want to submit the transactions? [yes/no] "
+      hFlush stdout
+      response <- getLine
+      case response of
+        "yes" -> pure True
+        "no" -> pure False
+        _ -> do
+          putStrLn "Answer is not valid"
+          confirmTxSubmission
+
+    processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
+    processTransactions txs pubKeyAddressMap =
       mapMErr
         ( \(tx, bs, i) -> do
-            putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
+            putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
             mapM_ print bs
 
             utxos <- utxosAt config $ config.ownAddress
@@ -61,12 +86,13 @@ tokenAirdrop config = do
             case eTxId of
               Left err -> pure $ Left err
               Right txId -> do
-                putStrLn $ "Submitted transaction successfully: " ++ show txId
-                putStrLn "Waiting for confirmation..."
-                waitUntilHasTxIn config 0 txId
+                when config.live $ do
+                  putStrLn $ "Submitted transaction successfully: " ++ show txId
+                  putStrLn "Waiting for confirmation..."
+                  waitUntilHasTxIn config 0 txId
                 pure $ Right ()
         )
-        $ zipWith combine2To3 txPairs [1 :: Int ..]
+        txs
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
