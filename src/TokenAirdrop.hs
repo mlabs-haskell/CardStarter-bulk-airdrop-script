@@ -16,6 +16,8 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
+import System.Directory (createDirectoryIfMissing)
+import System.FilePath (takeDirectory)
 import Prelude
 
 -- Number of blocks to wait before issuing a warning
@@ -71,7 +73,9 @@ tokenAirdrop config = do
     Right _ -> pure $ Right ()
     Left (msg, failed NEL.:| remaining) -> do
       let showBeneficiaries (_, bens, _) = fmap show bens
+      createDirectoryIfMissing True $ takeDirectory config.currentBeneficiariesLog
       writeFile config.currentBeneficiariesLog . unlines $ showBeneficiaries failed
+      createDirectoryIfMissing True $ takeDirectory config.remainingBeneficiariesLog
       writeFile config.remainingBeneficiariesLog . unlines $ remaining >>= showBeneficiaries
       pure $ Left msg
 

@@ -189,13 +189,13 @@ pCurrentBeneficiariesLog :: Parser FilePath
 pCurrentBeneficiariesLog =
   option
     auto
-    (long "current-beneficiaries-log" <> help "File to write the current beneficiaries when the transaction fails" <> showDefault <> value "log/current-beneficiaries.log" <> metavar "FILENAME")
+    (long "current-beneficiaries-log" <> help "File to write the current beneficiaries when the transaction fails" <> showDefault <> value "current-beneficiaries.log" <> metavar "FILENAME")
 
 pRemainingBeneficiariesLog :: Parser FilePath
 pRemainingBeneficiariesLog =
   option
     auto
-    (long "remaining-beneficiaries-log" <> help "File to write the remaining beneficiaries when a previous transaction has failed" <> showDefault <> value "log/remaining-beneficiaries.log" <> metavar "FILENAME")
+    (long "remaining-beneficiaries-log" <> help "File to write the remaining beneficiaries when a previous transaction has failed" <> showDefault <> value "remaining-beneficiaries.log" <> metavar "FILENAME")
 
 pVerbose :: Parser Bool
 pVerbose =
