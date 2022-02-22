@@ -1,11 +1,12 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module FakePAB.Constraints (submitTx, waitNSlots, logRecipientsUtxos) where
+module FakePAB.Constraints (submitTx, waitNSlots, logRecipientsUtxos, checkBalance) where
 
 import Config (Config)
 import Control.Concurrent (threadDelay)
 import Control.Lens (mapped, (%~), (^.))
-import Control.Monad (unless)
+import Control.Monad (unless, void)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
@@ -14,9 +15,10 @@ import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import FakePAB.Address (PubKeyAddress, fromPubKeyAddress, unsafeSerialiseAddress)
 import FakePAB.CardanoCLI (queryTip, submitScript, utxosAt)
+import FakePAB.PreBalance (preBalanceTx)
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address, toPubKeyHash)
-import Ledger.Constraints (ScriptLookups (..))
+import Ledger.Constraints (ScriptLookups (..), unspentOutputs)
 import Ledger.Constraints.OffChain (UnbalancedTx (..), mkTx)
 import Ledger.Constraints.TxConstraints (TxConstraints)
 import Ledger.Crypto (PubKeyHash)
@@ -48,6 +50,28 @@ submitTx config addressMap lookups constraints = do
       let tx' = useFullAddresses addressMap tx
 
       submitScript config unbalancedTx {unBalancedTxTx = tx'}
+
+-- | Check sufficient funds are available for a transaction, without submitting it
+checkBalance ::
+  forall a.
+  (FromData (DatumType a), ToData (DatumType a), ToData (RedeemerType a)) =>
+  Config ->
+  Map PubKeyHash PubKeyAddress ->
+  TxConstraints (RedeemerType a) (DatumType a) ->
+  IO (Either Text ())
+checkBalance config addressMap constraints = do
+  let ownAddr = config.ownAddress
+  utxos <- utxosAt config ownAddr
+  let lookups = unspentOutputs utxos
+  case mkTx @a lookups constraints of
+    Left err -> do
+      print err
+      pure $ Left $ Text.pack (show err)
+    Right UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} -> do
+      let tx' = useFullAddresses addressMap unBalancedTxTx
+          utxoIndex = fmap Tx.toTxOut utxos <> unBalancedTxUtxoIndex
+
+      pure $ void $ preBalanceTx config.minLovelaces config.fees utxoIndex ownAddr tx'
 
 -- | Replaces
 useFullAddresses :: Map PubKeyHash PubKeyAddress -> Tx -> Tx

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module TokenAirdrop (tokenAirdrop) where
 
 import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
@@ -8,7 +10,7 @@ import Data.Text (Text)
 import Data.Void (Void)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
-import FakePAB.Constraints (submitTx, waitNSlots)
+import FakePAB.Constraints (checkBalance, submitTx, waitNSlots)
 import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
@@ -24,15 +26,14 @@ tokenAirdrop config = do
   beneficiaries <- readBeneficiariesFile config
   putStrLn $ "Sending tokens to " ++ show (length beneficiaries) ++ " addresses"
 
-  let txPairs =
-        map mconcat $
-          group config.beneficiaryPerTx $
-            map
-              ( \beneficiary ->
-                  let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
-                   in (Constraints.mustPayToPubKey beneficiary.address.pkaPubKeyHash val, [beneficiary])
-              )
-              beneficiaries
+  let txPairsUngrouped =
+        flip map beneficiaries $
+          \beneficiary ->
+            let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
+             in (Constraints.mustPayToPubKey beneficiary.address.pkaPubKeyHash val, [beneficiary])
+
+      (allConstraints, _) = mconcat txPairsUngrouped
+      txPairs = map mconcat . group config.beneficiaryPerTx $ txPairsUngrouped
 
   when config.verbose $ do
     putStrLn "Batched recipients:"
@@ -43,24 +44,29 @@ tokenAirdrop config = do
       pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
       pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
 
-  mapMErr
-    ( \(tx, bs, i) -> do
-        putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
-        mapM_ print bs
+  -- Before we start submitting transactions, first check we have enough to pay out to all beneficiaries
+  balanced <- checkBalance @Void config pubKeyAddressMap allConstraints
+  case balanced of
+    Left e -> pure $ Left e
+    _ -> do
+      mapMErr
+        ( \(tx, bs, i) -> do
+            putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
+            mapM_ print bs
 
-        utxos <- utxosAt config $ config.ownAddress
-        let lookups = Constraints.unspentOutputs utxos
+            utxos <- utxosAt config $ config.ownAddress
+            let lookups = Constraints.unspentOutputs utxos
 
-        eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
-        case eTxId of
-          Left err -> pure $ Left err
-          Right txId -> do
-            putStrLn $ "Submitted transaction successfully: " ++ show txId
-            putStrLn "Waiting for confirmation..."
-            waitUntilHasTxIn config 0 txId
-            pure $ Right ()
-    )
-    $ zipWith combine2To3 txPairs [1 :: Int ..]
+            eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
+            case eTxId of
+              Left err -> pure $ Left err
+              Right txId -> do
+                putStrLn $ "Submitted transaction successfully: " ++ show txId
+                putStrLn "Waiting for confirmation..."
+                waitUntilHasTxIn config 0 txId
+                pure $ Right ()
+        )
+        $ zipWith combine2To3 txPairs [1 :: Int ..]
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
