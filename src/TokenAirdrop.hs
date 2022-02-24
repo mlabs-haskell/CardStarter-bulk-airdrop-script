@@ -2,9 +2,8 @@ module TokenAirdrop (tokenAirdrop) where
 
 import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
 import Config (Config (..))
-import Control.Exception (SomeException, try)
+import Control.Exception (SomeException, catch)
 import Control.Monad (when)
-import Data.Either.Combinators (mapLeft)
 import Data.List.NonEmpty qualified as NEL
 import Data.Map (Map, fromList, keys)
 import Data.Text (Text, pack)
@@ -71,10 +70,15 @@ tokenAirdrop config = do
           putStrLn "Answer is not valid"
           confirmTxSubmission
 
+    handle' :: String -> IO (Either Text ()) -> IO (Either Text ())
+    handle' s m = catch @SomeException m $ \e -> do
+      when config.verbose $ print e
+      pure . Left . pack $ s
+
     processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
     processTransactions txs pubKeyAddressMap = do
       result <- flip mapMErr txs $
-        \(tx, bs, i) -> do
+        \(tx, bs, i) -> handle' ("Failed to prepare and submit transaction " ++ show i) $ do
           putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
           mapM_ print bs
 
@@ -84,12 +88,12 @@ tokenAirdrop config = do
           eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
           case eTxId of
             Left err -> pure $ Left err
-            Right txId -> do
-              let handler _ = pack $ "Failed to confirm transaction: " ++ show txId
-              fmap (mapLeft handler) . try @SomeException . when config.live $ do
+            Right txId -> handle' ("Failed to confirm transaction: " ++ show txId) $ do
+              when config.live $ do
                 putStrLn $ "Submitted transaction successfully: " ++ show txId
                 putStrLn "Waiting for confirmation..."
                 waitUntilHasTxIn config 0 txId
+              pure $ Right ()
 
       case result of
         Right _ -> pure $ Right ()
