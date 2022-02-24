@@ -9,6 +9,7 @@ import Data.Void (Void)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
+import Ledger.Address (PaymentPubKeyHash (..))
 import Ledger.Constraints qualified as Constraints
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
@@ -31,7 +32,7 @@ tokenAirdrop config = do
             map
               ( \beneficiary ->
                   let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
-                   in (Constraints.mustPayToPubKey beneficiary.address.pkaPubKeyHash val, [beneficiary])
+                   in (Constraints.mustPayToPubKey (PaymentPubKeyHash beneficiary.address.pkaPubKeyHash) val, [beneficiary])
               )
               beneficiaries
 

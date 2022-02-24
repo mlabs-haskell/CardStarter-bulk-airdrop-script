@@ -257,24 +257,24 @@
         "branch": "master",
         "description": "Create PureScript datatypes from Haskell datatypes",
         "homepage": null,
-        "owner": "shmish111",
+        "owner": "input-output-hk",
         "repo": "purescript-bridge",
         "rev": "366fc70b341e2633f3ad0158a577d52e1cd2b138",
         "sha256": "18j0rysfccbmfpbw2d1rsjkpd5h84alpsn6b5rwzdxw9h5vqi9m5",
         "type": "tarball",
-        "url": "https://github.com/shmish111/purescript-bridge/archive/366fc70b341e2633f3ad0158a577d52e1cd2b138.tar.gz",
+        "url": "https://github.com/input-output-hk/purescript-bridge/archive/366fc70b341e2633f3ad0158a577d52e1cd2b138.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "servant-purescript": {
         "branch": "master",
         "description": "Translate servant API to purescript code, with the help of purescript-bridge.",
         "homepage": null,
-        "owner": "shmish111",
+        "owner": "input-output-hk",
         "repo": "servant-purescript",
         "rev": "ebea59c7bdfc0338d83fca772b9a57e28560bcde",
         "sha256": "0gjcq4y61kwb4w70pnswn5dp23wd13dac8d9hz84j374cm1kshsn",
         "type": "tarball",
-        "url": "https://github.com/shmish111/servant-purescript/archive/ebea59c7bdfc0338d83fca772b9a57e28560bcde.tar.gz",
+        "url": "https://github.com/input-output-hk/servant-purescript/archive/ebea59c7bdfc0338d83fca772b9a57e28560bcde.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
