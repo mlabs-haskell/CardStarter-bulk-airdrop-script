@@ -134,7 +134,7 @@ mapMErr f = snd . foldr go ([], pure $ Right ())
       )
 
 -- | Perform an action on the second part of the Left
-catchSnd :: Monad m => m (Either (e, e') a) -> (e' -> m a) -> m (Either e a)
+catchSnd :: Monad m => m (Either (e, e') a) -> (e' -> m ()) -> m (Either e a)
 catchSnd m h =
   m >>= \case
     Right a -> pure $ Right a
