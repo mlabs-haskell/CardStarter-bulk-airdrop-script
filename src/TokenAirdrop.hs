@@ -1,12 +1,12 @@
 module TokenAirdrop (tokenAirdrop) where
 
-import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
+import BeneficiariesFile (Beneficiary, address, readBeneficiariesFile, srcText)
 import Config (Config (..))
 import Control.Exception (SomeException, catch)
-import Control.Monad (when)
+import Control.Monad.Except
 import Data.List.NonEmpty qualified as NEL
 import Data.Map (Map, fromList, keys)
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, unpack)
 import Data.Void (Void)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
@@ -23,6 +23,8 @@ import Prelude
 -- Number of blocks to wait before issuing a warning
 blockCountWarning :: Integer
 blockCountWarning = 50
+
+type IndexedTransaction = (Constraints.TxConstraints Void Void, [Beneficiary], Int)
 
 tokenAirdrop :: Config -> IO (Either Text ())
 tokenAirdrop config = do
@@ -47,16 +49,21 @@ tokenAirdrop config = do
       addrs = address <$> beneficiaries
       pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
       pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
-      indexedTxs :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)]
+      indexedTxs :: [IndexedTransaction]
       indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
-  if config.live
-    then do
-      confirm <- confirmTxSubmission
-      if confirm
-        then processTransactions indexedTxs pubKeyAddressMap
-        else pure $ Left "Operation stopped by user"
-    else processTransactions indexedTxs pubKeyAddressMap
+  runExceptT $ do
+    when config.live $ do
+      confirmed <- lift confirmTxSubmission
+      unless confirmed $ throwError "Operation stopped by user"
+
+    ExceptT $
+      processTransactions indexedTxs pubKeyAddressMap
+        >>= \case
+          Right _ -> pure $ Right ()
+          Left (msg, txs) -> do
+            logBeneficiares $ fmap (\(_, b, _) -> b) txs
+            pure $ Left msg
   where
     confirmTxSubmission :: IO Bool
     confirmTxSubmission = do
@@ -70,15 +77,15 @@ tokenAirdrop config = do
           putStrLn "Answer is not valid"
           confirmTxSubmission
 
-    handle' :: String -> IO (Either Text ()) -> IO (Either Text ())
-    handle' s m = catch @SomeException m $ \e -> do
+    handleWith :: String -> IO (Either Text ()) -> IO (Either Text ())
+    handleWith s m = catch @SomeException m $ \e -> do
       when config.verbose $ print e
       pure . Left . pack $ s
 
-    processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
-    processTransactions txs pubKeyAddressMap = do
-      result <- flip mapMErr txs $
-        \(tx, bs, i) -> handle' ("Failed to prepare and submit transaction " ++ show i) $ do
+    processTransactions :: [IndexedTransaction] -> Map PubKeyHash PubKeyAddress -> IO (Either (Text, NEL.NonEmpty IndexedTransaction) ())
+    processTransactions txs pubKeyAddressMap =
+      flip mapMErr txs $
+        \(tx, bs, i) -> handleWith ("Failed to prepare and submit transaction " ++ show i) $ do
           putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
           mapM_ print bs
 
@@ -88,23 +95,24 @@ tokenAirdrop config = do
           eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
           case eTxId of
             Left err -> pure $ Left err
-            Right txId -> handle' ("Failed to confirm transaction: " ++ show txId) $ do
+            Right txId -> handleWith ("Failed to confirm transaction: " ++ show txId) $ do
               when config.live $ do
                 putStrLn $ "Submitted transaction successfully: " ++ show txId
                 putStrLn "Waiting for confirmation..."
                 waitUntilHasTxIn config 0 txId
               pure $ Right ()
 
-      case result of
-        Right _ -> pure $ Right ()
-        Left (msg, failed NEL.:| remaining) -> do
-          when config.live $ do
-            let showBeneficiaries (_, bens, _) = fmap show bens
-            createDirectoryIfMissing True $ takeDirectory config.currentBeneficiariesLog
-            writeFile config.currentBeneficiariesLog . unlines $ showBeneficiaries failed
-            createDirectoryIfMissing True $ takeDirectory config.remainingBeneficiariesLog
-            writeFile config.remainingBeneficiariesLog . unlines $ remaining >>= showBeneficiaries
-          pure $ Left msg
+    writeLog :: FilePath -> String -> IO ()
+    writeLog path s = do
+      createDirectoryIfMissing True $ takeDirectory path
+      writeFile config.currentBeneficiariesLog s
+
+    logBeneficiares :: NEL.NonEmpty [Beneficiary] -> IO ()
+    logBeneficiares (failed NEL.:| remaining) = do
+      when config.live $ do
+        let showBeneficiaries = unlines . fmap (unpack . srcText)
+        writeLog config.currentBeneficiariesLog $ showBeneficiaries failed
+        writeLog config.remainingBeneficiariesLog . showBeneficiaries $ concat remaining
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()

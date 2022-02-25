@@ -1,4 +1,4 @@
-module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, parseContent) where
+module BeneficiariesFile (readBeneficiariesFile, Beneficiary, srcText, address, amount, parseAsset, parseContent) where
 
 import Config (Config (..))
 import Data.Aeson.Extras (tryDecode)
@@ -19,13 +19,14 @@ import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, words)
 
 data Beneficiary = Beneficiary
-  { address :: !PubKeyAddress
+  { srcText :: !Text
+  , address :: !PubKeyAddress
   , amount :: !Integer
   , assetClass :: !AssetClass
   }
 
 instance Show Beneficiary where
-  show (Beneficiary addr amt ac) = show addr ++ " " ++ show amt ++ " " ++ show ac
+  show (Beneficiary _ addr amt ac) = show addr ++ " " ++ show amt ++ " " ++ show ac
 
 parseContent :: Config -> Text -> Either Text [Beneficiary]
 parseContent conf =
@@ -34,7 +35,7 @@ parseContent conf =
     . lines
 
 parseBeneficiary :: Config -> Text -> Either Text Beneficiary
-parseBeneficiary conf = toBeneficiary . words
+parseBeneficiary conf src = toBeneficiary . words $ src
   where
     toBeneficiary :: [Text] -> Either Text Beneficiary
     toBeneficiary [addr, amt, ac] =
@@ -59,7 +60,7 @@ parseBeneficiary conf = toBeneficiary . words
         (_, Just amtc) -> Left . Text.pack $ "Too few decimal places resulted in truncation. " <> show amt <> " lost " <> show amtc
 
     makeBeneficiary :: Text -> Either Text Scientific -> Either Text AssetClass -> Either Text Beneficiary
-    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount) <*> eAc
+    makeBeneficiary addr eAmt eAc = Beneficiary src <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount) <*> eAc
 
 -- Converts a Scientific to an Integer. If truncation occurs, return the truncated value and the change
 scientificToInteger :: Scientific -> (Integer, Maybe Scientific)
