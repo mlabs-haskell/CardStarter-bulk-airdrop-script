@@ -13,6 +13,7 @@ import Ledger.Credential (Credential (..), StakingCredential (..))
 import Ledger.Crypto (PubKey)
 import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
+import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import Test.Tasty.QuickCheck (Arbitrary (..), Property, testProperty, (.&&.), (=/=), (===))
@@ -50,7 +51,7 @@ prop_AddressRoundtrip addr conf =
 
 prop_PubKeyMaintained :: PubKey -> PubKey -> Config -> Property
 prop_PubKeyMaintained pubKey stakingPubKey conf =
-  let addr = Ledger.pubKeyAddress pubKey
+  let addr = Ledger.pubKeyAddress (Ledger.PaymentPubKey pubKey) Nothing
       stakingCred = StakingHash $ PubKeyCredential $ Ledger.pubKeyHash stakingPubKey
       addrWithStaking = addr {addressStakingCredential = Just stakingCred}
    in Ledger.toPubKeyHash addrWithStaking === Ledger.toPubKeyHash addr
@@ -60,7 +61,7 @@ prop_PubKeyAddressRoundtrip :: PubKey -> Property
 prop_PubKeyAddressRoundtrip pubKey =
   (fromPubKeyAddress <$> toPubKeyAddress addr) === Just addr
   where
-    addr = Ledger.pubKeyAddress pubKey
+    addr = Ledger.pubKeyAddress (Ledger.PaymentPubKey pubKey) Nothing
 
 instance Arbitrary Config where
   arbitrary = do
@@ -75,7 +76,7 @@ defaultConfig =
     , protocolParamsFile = "./protocol.json"
     , beneficiariesFile = "./beneficiaries"
     , usePubKeys = True
-    , ownAddress = Ledger.pubKeyHashAddress "aabb1122"
+    , ownAddress = pubKeyHashAddress "aabb1122"
     , signingKeyFile = "./own.skey"
     , assetClass = Just $ Value.assetClass "adc123" "testtoken"
     , dropAmount = Just 4

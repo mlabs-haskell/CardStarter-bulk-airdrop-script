@@ -8,9 +8,9 @@ import Config (Config (..))
 import Data.Either (isLeft)
 import Data.Scientific
 import Data.Text (pack)
-import Ledger qualified
 import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
+import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (Large (..), Positive (..), Property, Small (..), testProperty, (===))
 import Prelude
@@ -37,7 +37,7 @@ defaultConfig =
     , protocolParamsFile = "./protocol.json"
     , beneficiariesFile = "./beneficiaries"
     , usePubKeys = True
-    , ownAddress = Ledger.pubKeyHashAddress "aabb1122"
+    , ownAddress = pubKeyHashAddress "aabb1122"
     , signingKeyFile = "./own.skey"
     , assetClass = Just $ Value.assetClass "adc123" "testtoken"
     , dropAmount = Just 4

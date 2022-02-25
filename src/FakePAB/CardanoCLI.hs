@@ -33,7 +33,7 @@ import FakePAB.UtxoParser qualified as UtxoParser
 import GHC.Generics (Generic)
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address (..))
-import Ledger.Constraints.OffChain (UnbalancedTx (..))
+import Ledger.Constraints.OffChain (UnbalancedTx (..), fromScriptOutput)
 import Ledger.Tx (ChainIndexTxOut, Tx (..), TxIn (..), TxOut (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
 import Ledger.TxId (TxId (..))
@@ -66,7 +66,7 @@ submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
 
   utxos <- utxosAt config ownAddr
 
-  let utxoIndex = fmap Tx.toTxOut utxos <> unBalancedTxUtxoIndex
+  let utxoIndex = fmap Tx.toTxOut utxos <> fmap (Tx.toTxOut . fromScriptOutput) unBalancedTxUtxoIndex
       eitherPreBalancedTx =
         preBalanceTx config.minLovelaces config.fees utxoIndex ownAddr unBalancedTxTx
 
