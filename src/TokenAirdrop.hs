@@ -57,13 +57,10 @@ tokenAirdrop config = do
       confirmed <- lift confirmTxSubmission
       unless confirmed $ throwError "Operation stopped by user"
 
-    ExceptT $
-      processTransactions indexedTxs pubKeyAddressMap
-        >>= \case
-          Right _ -> pure $ Right ()
-          Left (msg, txs) -> do
-            logBeneficiares $ fmap (\(_, b, _) -> b) txs
-            pure $ Left msg
+    ExceptT
+      . catchSnd
+        (processTransactions indexedTxs pubKeyAddressMap)
+      $ logBeneficiares . fmap (\(_, b, _) -> b)
   where
     confirmTxSubmission :: IO Bool
     confirmTxSubmission = do
@@ -135,6 +132,13 @@ mapMErr f = snd . foldr go ([], pure $ Right ())
       ( x : fst acc
       , f x >>= either (pure . Left . (,x NEL.:| fst acc)) (const $ snd acc)
       )
+
+-- | Perform an action on the second part of the Left
+catchSnd :: Monad m => m (Either (e, e') a) -> (e' -> m a) -> m (Either e a)
+catchSnd m h =
+  m >>= \case
+    Right a -> pure $ Right a
+    Left (e, e') -> Left e <$ h e'
 
 combine2To3 :: (a, b) -> c -> (a, b, c)
 combine2To3 (a, b) = (a,b,)
