@@ -89,13 +89,13 @@ parseAddress isPubKey addrStr =
   if isPubKey
     then do
       pkh <- parsePubKeyHash' addrStr
-      toPubKeyAddress' $ pubKeyHashAddress pkh
+      toAddress $ pubKeyHashAddress pkh
     else do
       addr <- deserialiseAddress addrStr
-      toPubKeyAddress' addr
+      toAddress addr
   where
-    toPubKeyAddress' addr@(Address (PubKeyCredential _) _) = Right addr
-    toPubKeyAddress' _ = Left $ "Script addresses are not allowed: " <> addrStr
+    toAddress addr@(Address (PubKeyCredential _) _) = Right addr
+    toAddress _ = Left $ "Script addresses are not allowed: " <> addrStr
 
 parsePubKeyHash' :: Text -> Either Text PubKeyHash
 parsePubKeyHash' rawStr =

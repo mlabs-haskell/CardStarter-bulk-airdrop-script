@@ -6,7 +6,7 @@ import Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Config (Config (..))
 import Control.Monad ((<=<))
 import Data.Text (Text)
-import FakePAB.Address (deserialiseAddress, fromPubKeyAddress, serialiseAddress, toPubKeyAddress)
+import FakePAB.Address (deserialiseAddress, serialiseAddress)
 import Ledger qualified
 import Ledger.Address (Address (..))
 import Ledger.Credential (Credential (..), StakingCredential (..))
@@ -26,7 +26,6 @@ tests =
     [ testCase "Address serialisation roundtrip (Text -> Address -> Text)" addressRoundtrip
     , testProperty "Address serialisation roundtrip (Address -> Text -> Address)" prop_AddressRoundtrip
     , testProperty "Address pub key is maintained" prop_PubKeyMaintained
-    , testProperty "PubKeyAddress roundtrip" prop_PubKeyAddressRoundtrip
     ]
 
 addressRoundtrip :: Assertion
@@ -56,12 +55,6 @@ prop_PubKeyMaintained pubKey stakingPubKey conf =
       addrWithStaking = addr {addressStakingCredential = Just stakingCred}
    in Ledger.toPubKeyHash addrWithStaking === Ledger.toPubKeyHash addr
         .&&. serialiseAddress conf addrWithStaking =/= serialiseAddress conf addr
-
-prop_PubKeyAddressRoundtrip :: PubKey -> Property
-prop_PubKeyAddressRoundtrip pubKey =
-  (fromPubKeyAddress <$> toPubKeyAddress addr) === Just addr
-  where
-    addr = Ledger.pubKeyAddress (Ledger.PaymentPubKey pubKey) Nothing
 
 instance Arbitrary Config where
   arbitrary = do

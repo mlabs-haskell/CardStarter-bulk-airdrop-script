@@ -31,7 +31,7 @@ tokenAirdrop config = do
             map
               ( \beneficiary ->
                   let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
-                   in (mustPayToAddress (beneficiary.address) val, [beneficiary])
+                   in (mustPayToAddress beneficiary.address val, [beneficiary])
               )
               beneficiaries
 
