@@ -1,6 +1,6 @@
 module TokenAirdrop (tokenAirdrop) where
 
-import BeneficiariesFile (Beneficiary, address, readBeneficiariesFile, srcText)
+import BeneficiariesFile (Beneficiary, address, prettyContent, readBeneficiariesFile)
 import Config (Config (..))
 import Control.Exception (SomeException, catch)
 import Control.Monad.Except
@@ -20,11 +20,11 @@ import System.FilePath (takeDirectory)
 import System.IO (hFlush, stdout)
 import Prelude
 
+type IndexedTransaction = (Constraints.TxConstraints Void Void, [Beneficiary], Int)
+
 -- Number of blocks to wait before issuing a warning
 blockCountWarning :: Integer
 blockCountWarning = 50
-
-type IndexedTransaction = (Constraints.TxConstraints Void Void, [Beneficiary], Int)
 
 tokenAirdrop :: Config -> IO (Either Text ())
 tokenAirdrop config = do
@@ -58,9 +58,8 @@ tokenAirdrop config = do
       unless confirmed $ throwError "Operation stopped by user"
 
     ExceptT
-      . catchSnd
-        (processTransactions indexedTxs pubKeyAddressMap)
-      $ logBeneficiares . fmap (\(_, b, _) -> b)
+      . catchSnd (processTransactions indexedTxs pubKeyAddressMap)
+      $ when config.live . logBeneficiares . fmap (\(_, b, _) -> b)
   where
     confirmTxSubmission :: IO Bool
     confirmTxSubmission = do
@@ -99,17 +98,17 @@ tokenAirdrop config = do
                 waitUntilHasTxIn config 0 txId
               pure $ Right ()
 
-    writeLog :: FilePath -> String -> IO ()
-    writeLog path s = do
-      createDirectoryIfMissing True $ takeDirectory path
-      writeFile config.currentBeneficiariesLog s
+    writeLog :: FilePath -> Either Text Text -> IO ()
+    writeLog path = \case
+      Left err -> error . unpack $ err
+      Right t -> do
+        createDirectoryIfMissing True $ takeDirectory path
+        writeFile config.currentBeneficiariesLog (unpack t)
 
     logBeneficiares :: NEL.NonEmpty [Beneficiary] -> IO ()
     logBeneficiares (failed NEL.:| remaining) = do
-      when config.live $ do
-        let showBeneficiaries = unlines . fmap (unpack . srcText)
-        writeLog config.currentBeneficiariesLog $ showBeneficiaries failed
-        writeLog config.remainingBeneficiariesLog . showBeneficiaries $ concat remaining
+      writeLog config.currentBeneficiariesLog $ prettyContent config failed
+      writeLog config.remainingBeneficiariesLog . prettyContent config $ concat remaining
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
