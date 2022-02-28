@@ -1,10 +1,11 @@
 module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, parseContent) where
 
 import Config (Config (..))
+import Control.Applicative ((<|>))
 import Data.Aeson.Extras (tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Bifunctor (first)
-import Data.Either.Combinators (fromLeft, fromRight, maybeToRight)
+import Data.Either.Combinators (leftToMaybe, maybeToRight, rightToMaybe)
 import Data.Scientific
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
@@ -46,8 +47,8 @@ parseBeneficiary conf = toBeneficiary . words
       eAssetOrAmt <- parseAssetOrAmt assetOrAmt
       makeBeneficiary
         addr
-        (maybeToMissing "quantity" $ flip fromRight eAssetOrAmt <$> conf.dropAmount)
-        (maybeToMissing "assetclass" $ flip fromLeft eAssetOrAmt <$> conf.assetClass)
+        (maybeToMissing "quantity" $ rightToMaybe eAssetOrAmt <|> conf.dropAmount)
+        (maybeToMissing "assetclass" $ leftToMaybe eAssetOrAmt <|> conf.assetClass)
     toBeneficiary [addr] =
       makeBeneficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
     toBeneficiary _ = Left "Invalid number of inputs"
