@@ -2,12 +2,11 @@ module TokenAirdrop (tokenAirdrop) where
 
 import BeneficiariesFile (Beneficiary, address, prettyContent, readBeneficiariesFile)
 import Config (Config (..))
-import Control.Exception (SomeException, catch)
 import Control.Monad.Except
-import Data.List.NonEmpty qualified as NEL
 import Data.Map (Map, fromList, keys)
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, unpack)
 import Data.Void (Void)
+import Data.List (tails)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
@@ -57,9 +56,7 @@ tokenAirdrop config = do
       confirmed <- lift confirmTxSubmission
       unless confirmed $ throwError "Operation stopped by user"
 
-    ExceptT
-      . catchSnd (processTransactions indexedTxs pubKeyAddressMap)
-      $ when config.live . logBeneficiares . fmap (\(_, b, _) -> b)
+    ExceptT $ processTransactions indexedTxs pubKeyAddressMap
   where
     confirmTxSubmission :: IO Bool
     confirmTxSubmission = do
@@ -73,15 +70,14 @@ tokenAirdrop config = do
           putStrLn "Answer is not valid"
           confirmTxSubmission
 
-    handleWith :: String -> IO (Either Text ()) -> IO (Either Text ())
-    handleWith s m = catch @SomeException m $ \e -> do
-      when config.verbose $ print e
-      pure . Left . pack $ s
+    processTransactions :: [IndexedTransaction] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
+    processTransactions txs pubKeyAddressMap = mapMErr go (tails txs)
+      where
+        go :: [IndexedTransaction] -> IO (Either Text ())
+        go [] = Right () <$ logBeneficiaries [] []
+        go ((tx, bs, i) : remaining) = do
+          when config.live $ logBeneficiaries bs (concatMap (\(_, b, _) -> b) remaining)
 
-    processTransactions :: [IndexedTransaction] -> Map PubKeyHash PubKeyAddress -> IO (Either (Text, NEL.NonEmpty IndexedTransaction) ())
-    processTransactions txs pubKeyAddressMap =
-      flip mapMErr txs $
-        \(tx, bs, i) -> handleWith ("Failed to prepare and submit transaction " ++ show i) $ do
           putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
           mapM_ print bs
 
@@ -91,7 +87,7 @@ tokenAirdrop config = do
           eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
           case eTxId of
             Left err -> pure $ Left err
-            Right txId -> handleWith ("Failed to confirm transaction: " ++ show txId) $ do
+            Right txId -> do
               when config.live $ do
                 putStrLn $ "Submitted transaction successfully: " ++ show txId
                 putStrLn "Waiting for confirmation..."
@@ -105,10 +101,10 @@ tokenAirdrop config = do
         createDirectoryIfMissing True $ takeDirectory path
         writeFile config.currentBeneficiariesLog (unpack t)
 
-    logBeneficiares :: NEL.NonEmpty [Beneficiary] -> IO ()
-    logBeneficiares (failed NEL.:| remaining) = do
-      writeLog config.currentBeneficiariesLog $ prettyContent config failed
-      writeLog config.remainingBeneficiariesLog . prettyContent config $ concat remaining
+    logBeneficiaries :: [Beneficiary] -> [Beneficiary] -> IO ()
+    logBeneficiaries current remaining = do
+      writeLog config.currentBeneficiariesLog $ prettyContent config current
+      writeLog config.remainingBeneficiariesLog $ prettyContent config remaining
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
@@ -124,20 +120,8 @@ waitUntilHasTxIn config n txId = do
       waitUntilHasTxIn config (n + 1) txId
 
 -- | mapM for IO Either that stops on Left
-mapMErr :: (a -> IO (Either Text ())) -> [a] -> IO (Either (Text, NEL.NonEmpty a) ())
-mapMErr f = snd . foldr go ([], pure $ Right ())
-  where
-    go x acc =
-      ( x : fst acc
-      , f x >>= either (pure . Left . (,x NEL.:| fst acc)) (const $ snd acc)
-      )
-
--- | Perform an action on the second part of the Left
-catchSnd :: Monad m => m (Either (e, e') a) -> (e' -> m ()) -> m (Either e a)
-catchSnd m h =
-  m >>= \case
-    Right a -> pure $ Right a
-    Left (e, e') -> Left e <$ h e'
+mapMErr :: (a -> IO (Either Text ())) -> [a] -> IO (Either Text ())
+mapMErr f = foldr (\x acc -> f x >>= either (pure . Left) (const acc)) (pure $ Right ())
 
 combine2To3 :: (a, b) -> c -> (a, b, c)
 combine2To3 (a, b) = (a,b,)
