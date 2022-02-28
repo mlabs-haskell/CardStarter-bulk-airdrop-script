@@ -10,12 +10,12 @@ import Data.Scientific
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
-import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Value (AssetClass)
 import Plutus.V1.Ledger.Address (Address (..), pubKeyHashAddress)
 import Plutus.V1.Ledger.Credential (Credential (..))
+import Plutus.V1.Ledger.Extra (deserialiseAddress)
 import PlutusTx.Builtins (toBuiltin)
 import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, words)

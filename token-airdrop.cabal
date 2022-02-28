@@ -75,7 +75,6 @@ library
     BeneficiariesFile
     CommandLine
     Config
-    FakePAB.Address
     TokenAirdrop
 
   other-modules:
@@ -141,6 +140,7 @@ test-suite token-airdrop-test
   build-depends:
     , cardano-api
     , either
+    , plutus-extra
     , plutus-ledger
     , plutus-ledger-api
     , plutus-pab

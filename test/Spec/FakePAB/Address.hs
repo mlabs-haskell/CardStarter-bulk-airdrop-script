@@ -3,17 +3,14 @@
 module Spec.FakePAB.Address (tests) where
 
 import Cardano.Api (NetworkId (..), NetworkMagic (..))
-import Config (Config (..))
 import Control.Monad ((<=<))
 import Data.Text (Text)
-import FakePAB.Address (deserialiseAddress, serialiseAddress)
 import Ledger qualified
 import Ledger.Address (Address (..))
 import Ledger.Credential (Credential (..), StakingCredential (..))
 import Ledger.Crypto (PubKey)
-import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
-import Plutus.V1.Ledger.Address (pubKeyHashAddress)
+import Plutus.V1.Ledger.Extra (deserialiseAddress, serialiseAddress)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import Test.Tasty.QuickCheck (Arbitrary (..), Property, testProperty, (.&&.), (=/=), (===))
@@ -34,7 +31,7 @@ addressRoundtrip =
   where
     doRoundtrip :: (Text, NetworkId) -> Either Text Text
     doRoundtrip (addr, netw) =
-      serialiseAddress (defaultConfig {network = netw}) =<< deserialiseAddress addr
+      serialiseAddress netw =<< deserialiseAddress addr
     addresses =
       [ ("addr_test1vzvpl3t9hncvjhqvlfhwv6fcwkmq655aslkhpqhfhupudfqx2ey2e", Testnet (NetworkMagic 100))
       , ("addr1vycujnqrkefsyse5hn445dw3s574s6kgafz0m2x8huj696sw0eckx", Mainnet)
@@ -44,40 +41,19 @@ addressRoundtrip =
       , ("Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi", Mainnet) -- Second form of Byron address
       ]
 
-prop_AddressRoundtrip :: Address -> Config -> Property
-prop_AddressRoundtrip addr conf =
-  (deserialiseAddress <=< serialiseAddress conf) addr === Right addr
+prop_AddressRoundtrip :: Address -> NetworkId -> Property
+prop_AddressRoundtrip addr netw =
+  (deserialiseAddress <=< serialiseAddress netw) addr === Right addr
 
-prop_PubKeyMaintained :: PubKey -> PubKey -> Config -> Property
-prop_PubKeyMaintained pubKey stakingPubKey conf =
+prop_PubKeyMaintained :: PubKey -> PubKey -> NetworkId -> Property
+prop_PubKeyMaintained pubKey stakingPubKey netw =
   let addr = Ledger.pubKeyAddress (Ledger.PaymentPubKey pubKey) Nothing
       stakingCred = StakingHash $ PubKeyCredential $ Ledger.pubKeyHash stakingPubKey
       addrWithStaking = addr {addressStakingCredential = Just stakingCred}
    in Ledger.toPubKeyHash addrWithStaking === Ledger.toPubKeyHash addr
-        .&&. serialiseAddress conf addrWithStaking =/= serialiseAddress conf addr
+        .&&. serialiseAddress netw addrWithStaking =/= serialiseAddress netw addr
 
-instance Arbitrary Config where
+instance Arbitrary NetworkId where
   arbitrary = do
     isTestnet <- arbitrary
-
-    pure $ if isTestnet then defaultConfig else defaultConfig {network = Mainnet}
-
-defaultConfig :: Config
-defaultConfig =
-  Config
-    { network = Testnet (NetworkMagic 100)
-    , protocolParamsFile = "./protocol.json"
-    , beneficiariesFile = "./beneficiaries"
-    , usePubKeys = True
-    , ownAddress = pubKeyHashAddress "aabb1122"
-    , signingKeyFile = "./own.skey"
-    , assetClass = Just $ Value.assetClass "adc123" "testtoken"
-    , dropAmount = Just 4
-    , beneficiaryPerTx = 100
-    , live = False
-    , minLovelaces = 100
-    , fees = 100
-    , decimalPlaces = 0
-    , truncate = False
-    , verbose = False
-    }
+    pure $ if isTestnet then Testnet $ NetworkMagic 100 else Mainnet
