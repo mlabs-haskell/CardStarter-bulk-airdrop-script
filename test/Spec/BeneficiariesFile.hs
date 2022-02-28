@@ -21,7 +21,7 @@ tests =
     "BeneficiariesFile"
     [ testProperty "Token amount parsing" prop_TokenAmountParsing
     , testProperty "BeneficiariesFile can parse without error (Text -> [Beneficiary])" prop_Parse
-    , testProperty "BeneficiariesFile roundtrip (Text -> [Beneficiary] -> Text)" prop_Roundtrip
+    , testProperty "BeneficiariesFile roundtrip ([Beneficiary] -> Text -> [Beneficiary])" prop_Roundtrip
     ]
 
 prop_Parse :: Beneficiaries -> Property
