@@ -12,9 +12,9 @@ import Data.Text qualified as Text
 import Data.Text.IO (readFile)
 import FakePAB.Address (PubKeyAddress, deserialiseAddress, toPubKeyAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
-import Ledger qualified
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Value (AssetClass)
+import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import PlutusTx.Builtins (toBuiltin)
 import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, words)
@@ -89,7 +89,7 @@ parseAddress isPubKey addrStr =
   if isPubKey
     then do
       pkh <- parsePubKeyHash' addrStr
-      toPubKeyAddress' $ Ledger.pubKeyHashAddress pkh
+      toPubKeyAddress' $ pubKeyHashAddress pkh
     else do
       addr <- deserialiseAddress addrStr
       toPubKeyAddress' addr

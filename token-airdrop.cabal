@@ -109,8 +109,10 @@ library
     , plutus-chain-index
     , plutus-contract
     , plutus-core
+    , plutus-chain-index-core
     , plutus-ledger
     , plutus-ledger-api
+    , plutus-ledger-constraints
     , plutus-pab
     , plutus-tx
     , plutus-tx-plugin
