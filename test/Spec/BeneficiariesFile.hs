@@ -21,7 +21,7 @@ tests =
     "BeneficiariesFile"
     [ testProperty "Token amount parsing" prop_TokenAmountParsing
     , testProperty "BeneficiariesFile can parse without error (Text -> [Beneficiary])" prop_Parse
-    , testProperty "BeneficiariesFile roundtrip ([Beneficiary] -> Text -> [Beneficiary])" prop_Roundtrip
+    , testProperty "BeneficiariesFile roundtrip (Text -> [Beneficiary] -> Text)" prop_Roundtrip
     ]
 
 prop_Parse :: Beneficiaries -> Property
@@ -37,7 +37,8 @@ prop_TokenAmountParsing (Large x) (Small scale) (Positive dp) =
 
 prop_Roundtrip :: Beneficiaries -> Property
 prop_Roundtrip (Beneficiaries (bens, config)) =
-  -- TODO Ideally we generate the beneficiaries directly, rather than text -> parsing
+  -- We can't check for equality immediately from the incoming Text, as information can be lost during parsing.
+  -- Thus we initially parse and then print, and then do the roundtrip, as parse >=> print should be idempotent
   let printed = either (error . unpack) id $ parseContent config bens >>= prettyContent config
       roundTrip = parseContent config >=> prettyContent config
    in roundTrip printed === Right printed
