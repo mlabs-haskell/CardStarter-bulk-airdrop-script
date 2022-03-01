@@ -8,12 +8,12 @@ import Data.Text (Text)
 import Data.Void (Void)
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
-import Ledger (unitDatum)
-import Ledger.Address (Address (..), PaymentPubKeyHash (..), StakePubKeyHash (..))
 import Ledger.Constraints qualified as Constraints
 import Ledger.Value qualified as Value
-import Plutus.V1.Ledger.Api (Credential (..), StakingCredential (..), TxId, TxOutRef (txOutRefId))
+import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
+import Plutus.V1.Ledger.Extra qualified as Extra
 import System.IO (hFlush, stdout)
+import Wallet.Types (ContractError)
 import Prelude
 
 -- Number of blocks to wait before issuing a warning
@@ -25,15 +25,18 @@ tokenAirdrop config = do
   beneficiaries <- readBeneficiariesFile config
   putStrLn $ "Sending tokens to " ++ show (length beneficiaries) ++ " addresses"
 
+  constraints <-
+    fromContractError $
+      mapM
+        ( \beneficiary -> do
+            let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
+            c <- Extra.mustPayToAddress beneficiary.address val
+            pure (c, [beneficiary])
+        )
+        beneficiaries
   let txPairs =
         map mconcat $
-          group config.beneficiaryPerTx $
-            map
-              ( \beneficiary ->
-                  let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
-                   in (mustPayToAddress beneficiary.address val, [beneficiary])
-              )
-              beneficiaries
+          group config.beneficiaryPerTx constraints
 
   when config.verbose $ do
     putStrLn "Batched recipients:"
@@ -50,6 +53,9 @@ tokenAirdrop config = do
         else pure $ Left "Operation stopped by user"
     else processTransactions indexedTxs
   where
+    fromContractError :: Either ContractError [a] -> IO [a]
+    fromContractError = either (error . show) pure
+
     confirmTxSubmission :: IO Bool
     confirmTxSubmission = do
       putStr "Running in live mode. Are you sure you want to submit the transactions? [yes/no] "
@@ -108,11 +114,3 @@ group :: Int -> [a] -> [[a]]
 group n list
   | length list <= n = [list]
   | otherwise = let (xs, xss) = splitAt n list in xs : group n xss
-
-mustPayToAddress :: Address -> Value.Value -> Constraints.TxConstraints i o
-mustPayToAddress (Address (PubKeyCredential pkh) (Just (StakingHash (PubKeyCredential skh)))) =
-  Constraints.mustPayToPubKeyAddress (PaymentPubKeyHash pkh) (StakePubKeyHash skh)
-mustPayToAddress (Address (PubKeyCredential pkh) _) =
-  Constraints.mustPayToPubKey (PaymentPubKeyHash pkh)
-mustPayToAddress (Address (ScriptCredential vh) _) =
-  Constraints.mustPayToOtherScript vh unitDatum
