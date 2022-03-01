@@ -19,6 +19,7 @@ import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Value (AssetClass)
 import Ledger.Value qualified as Value
+import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import PlutusTx.Builtins (fromBuiltin, toBuiltin)
 import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, unlines, unwords, words)
@@ -96,7 +97,7 @@ parseAddress isPubKey addrStr =
   if isPubKey
     then do
       pkh <- parsePubKeyHash' addrStr
-      toPubKeyAddress' $ Ledger.pubKeyHashAddress pkh
+      toPubKeyAddress' $ pubKeyHashAddress pkh
     else do
       addr <- deserialiseAddress addrStr
       toPubKeyAddress' addr

@@ -11,7 +11,6 @@ import Data.Scientific (Scientific)
 import Data.Text qualified as Text
 import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
-import Ledger qualified
 import Ledger.Address (Address)
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value (AssetClass)
@@ -36,6 +35,7 @@ import Options.Applicative (
   switch,
   value,
  )
+import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import Prelude
 
 -- | CLI configuration parser
@@ -96,7 +96,7 @@ pProtocolParamsFile =
 
 pOwnAddressOrPubKeyHash :: Parser Address
 pOwnAddressOrPubKeyHash =
-  pOwnAddress <|> fmap Ledger.pubKeyHashAddress pOwnPubKeyHash
+  pOwnAddress <|> fmap pubKeyHashAddress pOwnPubKeyHash
 
 pOwnAddress :: Parser Address
 pOwnAddress =
