@@ -21,27 +21,40 @@ tests =
     "BeneficiariesFile"
     [ testProperty "Token amount parsing" prop_TokenAmountParsing
     , testProperty "BeneficiariesFile can parse without error (Text -> [Beneficiary])" prop_Parse
-    , testProperty "BeneficiariesFile roundtrip (Text -> [Beneficiary] -> Text)" prop_Roundtrip
+    , testProperty "BeneficiariesFile can print without error ([Beneficiary] -> Text)" prop_Print
+    , testProperty "BeneficiariesFile roundtrip (Text -> [Beneficiary] -> Text)" prop_Roundtrip1
+    , testProperty "BeneficiariesFile roundtrip ([Beneficiary] -> Text -> [Beneficiary])" prop_Roundtrip2
     ]
-
-prop_Parse :: Beneficiaries -> Property
-prop_Parse (Beneficiaries (bens, config)) = either (error . unpack) (const $ property True) $ parseContent config bens
 
 prop_TokenAmountParsing :: Large Int -> Small Int -> Positive Int -> Property
 prop_TokenAmountParsing (Large x) (Small scale) (Positive dp) =
   let amt = normalize $ scientific (toInteger x) scale
       s = "adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd " <> show amt <> " 1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken"
       shouldTruncate = dp + base10Exponent amt < 0
-      didTruncate = isLeft $ parseContent (defaultConfig {decimalPlaces = toInteger dp}) (pack s)
+      didTruncate = isLeft $ parseContent (defaultConfig {decimalPlaces = toInteger dp, dropAmount = Nothing}) (pack s)
    in didTruncate === shouldTruncate
 
-prop_Roundtrip :: Beneficiaries -> Property
-prop_Roundtrip (Beneficiaries (bens, config)) =
+prop_Parse :: Beneficiaries -> Property
+prop_Parse (Beneficiaries (bens, config)) = either (error . unpack) (const $ property True) $ parseContent config bens
+
+-- TODO Generate [Beneficiary] directly, don't depend on parsing
+prop_Print :: Beneficiaries -> Property
+prop_Print (Beneficiaries (bens, config)) = either (error . unpack) (const $ property True) $ parseContent config bens >>= prettyContent config
+
+prop_Roundtrip1 :: Beneficiaries -> Property
+prop_Roundtrip1 (Beneficiaries (bens, config)) =
   -- We can't check for equality immediately from the incoming Text, as information can be lost during parsing.
   -- Thus we initially parse and then print, and then do the roundtrip, as parse >=> print should be idempotent
   let printed = either (error . unpack) id $ parseContent config bens >>= prettyContent config
       roundTrip = parseContent config >=> prettyContent config
    in roundTrip printed === Right printed
+
+-- TODO Generate [Beneficiary] directly
+prop_Roundtrip2 :: Beneficiaries -> Property
+prop_Roundtrip2 (Beneficiaries (bens, config)) =
+  let parsed = either (error . unpack) id $ parseContent config bens
+      roundTrip = prettyContent config >=> parseContent config
+   in roundTrip parsed === Right parsed
 
 newtype TokenAmount = TokenAmount {unTokenAmount :: Scientific}
 

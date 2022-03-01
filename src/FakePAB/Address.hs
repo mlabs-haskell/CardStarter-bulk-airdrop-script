@@ -77,6 +77,7 @@ data PubKeyAddress = PubKeyAddress
   { pkaPubKeyHash :: PubKeyHash
   , pkaStakingCredential :: Maybe StakingCredential
   }
+  deriving stock (Eq)
 
 instance Show PubKeyAddress where
   show (PubKeyAddress pkh _) = show pkh

@@ -29,6 +29,7 @@ data Beneficiary = Beneficiary
   , amount :: !Integer
   , assetClass :: !AssetClass
   }
+  deriving stock (Eq)
 
 instance Show Beneficiary where
   show (Beneficiary addr amt ac) = show addr ++ " " ++ show amt ++ " " ++ show ac
@@ -44,15 +45,18 @@ parseBeneficiary conf = toBeneficiary . words
   where
     toBeneficiary :: [Text] -> Either Text Beneficiary
     toBeneficiary [addr, amt, ac] =
-      makeBeneficiary addr (parseAmt amt) (parseAsset ac)
+      makeBeneficiary
+        addr
+        (withMaybeOverride (parseAmt amt) conf.dropAmount)
+        (withMaybeOverride (parseAsset ac) conf.assetClass)
     -- Second arg could be amount or asset class, so we try to parse as an amount first, if not, then asset
     -- Then fill in the Beneficiary with the data we have left, failing if we're missing anything
     toBeneficiary [addr, assetOrAmt] = do
       eAssetOrAmt <- parseAssetOrAmt assetOrAmt
       makeBeneficiary
         addr
-        (maybeToMissing "quantity" $ rightToMaybe eAssetOrAmt <|> conf.dropAmount)
-        (maybeToMissing "assetclass" $ leftToMaybe eAssetOrAmt <|> conf.assetClass)
+        (maybeToMissing "quantity" $ conf.dropAmount <|> rightToMaybe eAssetOrAmt)
+        (maybeToMissing "assetclass" $ conf.assetClass <|> leftToMaybe eAssetOrAmt)
     toBeneficiary [addr] =
       makeBeneficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
     toBeneficiary _ = Left "Invalid number of inputs"
@@ -66,6 +70,11 @@ parseBeneficiary conf = toBeneficiary . words
 
     makeBeneficiary :: Text -> Either Text Scientific -> Either Text AssetClass -> Either Text Beneficiary
     makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount) <*> eAc
+
+withMaybeOverride :: Either a b -> Maybe b -> Either a b
+withMaybeOverride (Left a) _ = Left a
+withMaybeOverride (Right b) Nothing = Right b
+withMaybeOverride _ (Just b) = Right b
 
 maybeInteger :: Integral i => Scientific -> Maybe i
 maybeInteger = either (const Nothing) Just . floatingOrInteger @Float

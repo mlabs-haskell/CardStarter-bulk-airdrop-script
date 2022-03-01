@@ -3,10 +3,10 @@ module TokenAirdrop (tokenAirdrop) where
 import BeneficiariesFile (Beneficiary, address, prettyContent, readBeneficiariesFile)
 import Config (Config (..))
 import Control.Monad.Except
+import Data.List (tails)
 import Data.Map (Map, fromList, keys)
 import Data.Text (Text, unpack)
 import Data.Void (Void)
-import Data.List (tails)
 import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
