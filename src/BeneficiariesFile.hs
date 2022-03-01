@@ -10,17 +10,18 @@ import Data.Scientific
 import Data.Text (Text, lines, words)
 import Data.Text qualified as Text
 import Data.Text.IO (readFile)
-import FakePAB.Address (PubKeyAddress, deserialiseAddress, toPubKeyAddress)
+import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Value (AssetClass)
-import Plutus.V1.Ledger.Address (pubKeyHashAddress)
+import Plutus.V1.Ledger.Address (Address (..), pubKeyHashAddress)
+import Plutus.V1.Ledger.Credential (Credential (..))
 import PlutusTx.Builtins (toBuiltin)
 import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, words)
 
 data Beneficiary = Beneficiary
-  { address :: !PubKeyAddress
+  { address :: !Address
   , amount :: !Integer
   , assetClass :: !AssetClass
   }
@@ -84,17 +85,18 @@ parseAssetOrAmt str = (Left <$> parseAsset str) <> (Right <$> parseAmt str)
 parseAsset :: Text -> Either Text AssetClass
 parseAsset = first Text.pack . Attoparsec.parseOnly UtxoParser.assetClassParser
 
-parseAddress :: Bool -> Text -> Either Text PubKeyAddress
+parseAddress :: Bool -> Text -> Either Text Address
 parseAddress isPubKey addrStr =
   if isPubKey
     then do
       pkh <- parsePubKeyHash' addrStr
-      toPubKeyAddress' $ pubKeyHashAddress pkh
+      toAddress $ pubKeyHashAddress pkh
     else do
       addr <- deserialiseAddress addrStr
-      toPubKeyAddress' addr
+      toAddress addr
   where
-    toPubKeyAddress' = maybeToRight ("Script addresses are not allowed: " <> addrStr) . toPubKeyAddress
+    toAddress addr@(Address (PubKeyCredential _) _) = Right addr
+    toAddress _ = Left $ "Script addresses are not allowed: " <> addrStr
 
 parsePubKeyHash' :: Text -> Either Text PubKeyHash
 parsePubKeyHash' rawStr =

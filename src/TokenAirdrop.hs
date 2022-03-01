@@ -1,19 +1,18 @@
 module TokenAirdrop (tokenAirdrop) where
 
-import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
+import BeneficiariesFile (Beneficiary, readBeneficiariesFile)
 import Config (Config (..))
 import Control.Monad (when)
-import Data.Map (Map, fromList, keys)
+import Data.Map (keys)
 import Data.Text (Text)
 import Data.Void (Void)
-import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
-import Ledger.Address (PaymentPubKeyHash (..))
+import Ledger (unitDatum)
+import Ledger.Address (Address (..), PaymentPubKeyHash (..), StakePubKeyHash (..))
 import Ledger.Constraints qualified as Constraints
-import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
-import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
+import Plutus.V1.Ledger.Api (Credential (..), StakingCredential (..), TxId, TxOutRef (txOutRefId))
 import System.IO (hFlush, stdout)
 import Prelude
 
@@ -32,7 +31,7 @@ tokenAirdrop config = do
             map
               ( \beneficiary ->
                   let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
-                   in (Constraints.mustPayToPubKey (PaymentPubKeyHash beneficiary.address.pkaPubKeyHash) val, [beneficiary])
+                   in (mustPayToAddress beneficiary.address val, [beneficiary])
               )
               beneficiaries
 
@@ -40,20 +39,16 @@ tokenAirdrop config = do
     putStrLn "Batched recipients:"
     mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
 
-  let addrs :: [PubKeyAddress]
-      addrs = address <$> beneficiaries
-      pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
-      pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
-      indexedTxs :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)]
+  let indexedTxs :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)]
       indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
   if config.live
     then do
       confirm <- confirmTxSubmission
       if confirm
-        then processTransactions indexedTxs pubKeyAddressMap
+        then processTransactions indexedTxs
         else pure $ Left "Operation stopped by user"
-    else processTransactions indexedTxs pubKeyAddressMap
+    else processTransactions indexedTxs
   where
     confirmTxSubmission :: IO Bool
     confirmTxSubmission = do
@@ -67,8 +62,8 @@ tokenAirdrop config = do
           putStrLn "Answer is not valid"
           confirmTxSubmission
 
-    processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
-    processTransactions txs pubKeyAddressMap =
+    processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> IO (Either Text ())
+    processTransactions txs =
       mapMErr
         ( \(tx, bs, i) -> do
             putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
@@ -77,7 +72,7 @@ tokenAirdrop config = do
             utxos <- utxosAt config $ config.ownAddress
             let lookups = Constraints.unspentOutputs utxos
 
-            eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
+            eTxId <- submitTx @Void config lookups tx
             case eTxId of
               Left err -> pure $ Left err
               Right txId -> do
@@ -113,3 +108,11 @@ group :: Int -> [a] -> [[a]]
 group n list
   | length list <= n = [list]
   | otherwise = let (xs, xss) = splitAt n list in xs : group n xss
+
+mustPayToAddress :: Address -> Value.Value -> Constraints.TxConstraints i o
+mustPayToAddress (Address (PubKeyCredential pkh) (Just (StakingHash (PubKeyCredential skh)))) =
+  Constraints.mustPayToPubKeyAddress (PaymentPubKeyHash pkh) (StakePubKeyHash skh)
+mustPayToAddress (Address (PubKeyCredential pkh) _) =
+  Constraints.mustPayToPubKey (PaymentPubKeyHash pkh)
+mustPayToAddress (Address (ScriptCredential vh) _) =
+  Constraints.mustPayToOtherScript vh unitDatum
