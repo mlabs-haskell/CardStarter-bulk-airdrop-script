@@ -56,4 +56,8 @@ prop_PubKeyMaintained pubKey stakingPubKey netw =
 instance Arbitrary NetworkId where
   arbitrary = do
     isTestnet <- arbitrary
-    pure $ if isTestnet then Testnet $ NetworkMagic 100 else Mainnet
+    if isTestnet
+      then do
+        magic <- arbitrary
+        pure $ Testnet $ NetworkMagic magic
+      else pure Mainnet
