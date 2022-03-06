@@ -121,13 +121,13 @@ pAssetClass :: Parser AssetClass
 pAssetClass =
   option
     (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
-    (long "asset-class" <> help "Token asset class (overrides beneficiaries file config)" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
+    (long "asset-class" <> help "Token asset class. The beneficiaries file must not contain token asset classes" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
 
 pDropAmount :: Parser Scientific
 pDropAmount =
   option
     auto
-    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary (overrides beneficiaries file config)" <> metavar "RATIONAL")
+    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary. The beneficaries file must not contain token amounts" <> metavar "RATIONAL")
 
 pBeneficiariesFile :: Parser FilePath
 pBeneficiariesFile =

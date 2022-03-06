@@ -5,13 +5,14 @@ import Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Config (Config (..))
 import Control.Monad (guard, (>=>))
 import Data.Either (isLeft)
-import Data.Maybe (catMaybes, isJust)
+import Data.Maybe (catMaybes, isNothing)
 import Data.Scientific
 import Data.Text (Text, pack, unlines, unpack, unwords)
 import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
 import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit (Assertion, testCase, assertBool)
 import Test.Tasty.QuickCheck (Arbitrary (..), Gen, Large (..), Positive (..), Property, Small (..), elements, liftArbitrary, listOf1, property, testProperty, (===))
 import Prelude hiding (truncate, unlines, unwords)
 
@@ -19,19 +20,42 @@ tests :: TestTree
 tests =
   testGroup
     "BeneficiariesFile"
-    [ testProperty "Token amount parsing" prop_TokenAmountParsing
+    [ testProperty "Token amount truncation" prop_TokenAmountTruncation
+    , testCase "Amount must be provided exactly once" oneAmount
+    , testCase "AssetClass must be provided exactly once" oneAssetClass
     , testProperty "BeneficiariesFile can parse without error (Text -> [Beneficiary])" prop_Parse
     , testProperty "BeneficiariesFile can print without error ([Beneficiary] -> Text)" prop_Print
     , testProperty "BeneficiariesFile roundtrip (Text -> [Beneficiary] -> Text)" prop_Roundtrip1
     , testProperty "BeneficiariesFile roundtrip ([Beneficiary] -> Text -> [Beneficiary])" prop_Roundtrip2
     ]
 
-prop_TokenAmountParsing :: Large Int -> Small Int -> Positive Int -> Property
-prop_TokenAmountParsing (Large x) (Small scale) (Positive dp) =
-  let amt = normalize $ scientific (toInteger x) scale
-      s = "adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd " <> show amt <> " 1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken"
+oneAmount :: Assertion
+oneAmount = do
+  assertBool "Fail to parse if neither amounts are provided" . isLeft $ f False False
+  assertBool "Fail to parse if both amounts are provided" . isLeft $ f True True
+  where
+    f inFile inConfig = parseContent (defaultConfig {dropAmount = defaultConfig.dropAmount <* guard inConfig, assetClass = Nothing}) .
+        unwords $
+          ["adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd"]
+            <> ["1000000" | inFile]
+            <> ["1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken"]
+
+oneAssetClass :: Assertion
+oneAssetClass = do
+  assertBool "Fail to parse if neither assetclasses are provided" . isLeft $ f False False
+  assertBool "Fail to parse if both assetclasses are provided" . isLeft $ f True True
+  where
+    f inFile inConfig = parseContent (defaultConfig {dropAmount = Nothing, assetClass = defaultConfig.assetClass <* guard inConfig}) .
+        unwords $
+          ["adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd"]
+            <> ["1000000"]
+            <> ["1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken" | inFile]
+
+prop_TokenAmountTruncation :: TokenAmount -> Positive Int -> Property
+prop_TokenAmountTruncation (TokenAmount amt) (Positive dp) =
+  let s = "adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd " <> show amt <> " 1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken"
       shouldTruncate = dp + base10Exponent amt < 0
-      didTruncate = isLeft $ parseContent (defaultConfig {decimalPlaces = toInteger dp, dropAmount = Nothing}) (pack s)
+      didTruncate = isLeft $ parseContent (defaultConfig {decimalPlaces = toInteger dp, dropAmount = Nothing, assetClass = Nothing}) (pack s)
    in didTruncate === shouldTruncate
 
 prop_Parse :: Beneficiaries -> Property
@@ -57,6 +81,7 @@ prop_Roundtrip2 (Beneficiaries (bens, config)) =
    in roundTrip parsed === Right parsed
 
 newtype TokenAmount = TokenAmount {unTokenAmount :: Scientific}
+  deriving stock (Show)
 
 newtype Beneficiaries = Beneficiaries (Text, Config) deriving stock (Show)
 
@@ -64,7 +89,7 @@ instance Arbitrary TokenAmount where
   arbitrary = do
     Positive (Large x) <- arbitrary @(Positive (Large Int))
     Small scale <- arbitrary @(Small Int)
-    pure . TokenAmount $ scientific (toInteger x) scale
+    pure . TokenAmount $ normalize $ scientific (toInteger x) scale
 
 instance Arbitrary Beneficiaries where
   arbitrary = do
@@ -72,32 +97,28 @@ instance Arbitrary Beneficiaries where
     Positive dp <- arbitrary @(Positive Integer)
 
     dropAmount' <- fmap unTokenAmount <$> arbitrary @(Maybe TokenAmount)
-    assetClass' <- arbitrary @(Maybe ())
+    assetClass' <- (defaultConfig.assetClass <*) <$> arbitrary @(Maybe ())
     let config =
           defaultConfig
             { usePubKeys = usePK
             , decimalPlaces = dp
             , truncate = True
             , dropAmount = dropAmount'
-            , assetClass = defaultConfig.assetClass <* assetClass'
+            , assetClass = assetClass'
             }
-    beneficiaries <- listOf1 $ beneficiary usePK (isJust assetClass') (isJust dropAmount')
+    beneficiaries <- listOf1 $ beneficiary usePK (isNothing assetClass') (isNothing dropAmount')
     pure $ Beneficiaries (unlines beneficiaries, config)
     where
-      -- if hasAssetClass or hasTokenAmount is False, we MUST generate them,
-      -- otherwise they are optional
       beneficiary :: Bool -> Bool -> Bool -> Gen Text
-      beneficiary usePubKey hasAssetClass hasTokenAmount = do
+      beneficiary usePubKey addAssetClass addTokenAmount = do
         let destination = if usePubKey then pkhs else addresses
             tokenAmount = do
               amt <- arbitrary @TokenAmount
-              isJust' <- (hasTokenAmount <=) <$> arbitrary @Bool
-              pure $ (pack . formatScientific Fixed Nothing . unTokenAmount $ amt) <$ guard isJust'
+              pure $ (pack . formatScientific Fixed Nothing . unTokenAmount $ amt) <$ guard addTokenAmount
             currencySymbol = do
               symbol <- currencySymbols
               maybeTokenName <- liftArbitrary @Maybe tokenNames
-              isJust' <- (hasAssetClass <=) <$> arbitrary @Bool
-              pure $ maybe symbol ((symbol <> ".") <>) maybeTokenName <$ guard isJust'
+              pure $ maybe symbol ((symbol <> ".") <>) maybeTokenName <$ guard addAssetClass
         unwords <$> (catMaybes <$> sequence [Just <$> destination, tokenAmount, currencySymbol])
 
       addresses :: Gen Text
