@@ -1,4 +1,4 @@
-module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, prettyContent, parseContent, scientificToInteger) where
+module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, prettyContent, parseContent) where
 
 import Config (Config (..))
 import Data.Aeson.Extras (encodeByteString, tryDecode)
@@ -76,12 +76,12 @@ parseBeneficiary conf = toBeneficiary . words
     makeBeneficiary :: Text -> Either Text Scientific -> Either Text AssetClass -> Either Text Beneficiary
     makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount) <*> eAc
 
-maybeInteger :: Integral i => Scientific -> Maybe i
-maybeInteger = either (const Nothing) Just . floatingOrInteger @Float
+scientificToMaybeInteger :: Integral i => Scientific -> Maybe i
+scientificToMaybeInteger = either (const Nothing) Just . floatingOrInteger @Float
 
 -- Converts a Scientific to an Integer. If truncation occurs, return the truncated value and the change
 scientificToInteger :: Scientific -> (Integer, Maybe Scientific)
-scientificToInteger s = maybe truncated (,Nothing) (maybeInteger s)
+scientificToInteger s = maybe truncated (,Nothing) (scientificToMaybeInteger s)
   where
     b10e = base10Exponent s
 
@@ -144,7 +144,7 @@ prettyBeneficiary conf (Beneficiary addr amt ac) =
       )
 
 prettyAmount :: Config -> Integer -> Either Text Text
-prettyAmount conf amt = Right $ maybe format (Text.pack . show) (maybeInteger @Integer amt')
+prettyAmount conf amt = Right $ maybe format (Text.pack . show) (scientificToMaybeInteger @Integer amt')
   where
     amt' = fromInteger @Scientific amt * (10 ^^ negate conf.decimalPlaces)
 
