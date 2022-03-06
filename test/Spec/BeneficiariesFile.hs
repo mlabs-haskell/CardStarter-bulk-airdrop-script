@@ -12,7 +12,7 @@ import Ledger.Value qualified as Value
 import Plutus.PAB.Arbitrary ()
 import Plutus.V1.Ledger.Address (pubKeyHashAddress)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit (Assertion, testCase, assertBool)
+import Test.Tasty.HUnit (Assertion, assertBool, testCase)
 import Test.Tasty.QuickCheck (Arbitrary (..), Gen, Large (..), Positive (..), Property, Small (..), elements, liftArbitrary, listOf1, property, testProperty, (===))
 import Prelude hiding (truncate, unlines, unwords)
 
@@ -34,22 +34,24 @@ oneAmount = do
   assertBool "Fail to parse if neither amounts are provided" . isLeft $ f False False
   assertBool "Fail to parse if both amounts are provided" . isLeft $ f True True
   where
-    f inFile inConfig = parseContent (defaultConfig {dropAmount = defaultConfig.dropAmount <* guard inConfig, assetClass = Nothing}) .
-        unwords $
-          ["adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd"]
-            <> ["1000000" | inFile]
-            <> ["1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken"]
+    f inFile inConfig =
+      parseContent (defaultConfig {dropAmount = defaultConfig.dropAmount <* guard inConfig, assetClass = Nothing})
+        . unwords
+        $ ["adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd"]
+          <> ["1000000" | inFile]
+          <> ["1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken"]
 
 oneAssetClass :: Assertion
 oneAssetClass = do
   assertBool "Fail to parse if neither assetclasses are provided" . isLeft $ f False False
   assertBool "Fail to parse if both assetclasses are provided" . isLeft $ f True True
   where
-    f inFile inConfig = parseContent (defaultConfig {dropAmount = Nothing, assetClass = defaultConfig.assetClass <* guard inConfig}) .
-        unwords $
-          ["adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd"]
-            <> ["1000000"]
-            <> ["1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken" | inFile]
+    f inFile inConfig =
+      parseContent (defaultConfig {dropAmount = Nothing, assetClass = defaultConfig.assetClass <* guard inConfig})
+        . unwords
+        $ ["adfd87319bd09c9e3ea10b251ccb046f87c5440343157e348c3ac7bd"]
+          <> ["1000000"]
+          <> ["1d6445ddeda578117f393848e685128f1e78ad0c4e48129c5964dc2e.testToken" | inFile]
 
 prop_TokenAmountTruncation :: TokenAmount -> Positive Int -> Property
 prop_TokenAmountTruncation (TokenAmount amt) (Positive dp) =
