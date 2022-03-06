@@ -54,8 +54,8 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 - `fees`: Transaction fees, this is only used for coin selection, the actual fee is calculated by the cardano-cli
 - `decimal-places`: Scale all token amounts by this many decimal places (value * 10^decimal-places)
 - `truncate`: Allow rounding down token amounts to the nearest natural number when there is a decimal part
-- `current-beneficiaries-log`: File to write the current beneficiaries when the transaction fails
-- `remaining-beneficiaries-log`: File to write the remaining beneficiaries when a previous transaction has failed
+- `current-beneficiaries-log`: File to write the current beneficiaries of a transaction
+- `remaining-beneficiaries-log`: File to write the remaining beneficiaries after each transaction
 
 ### Beneficiaries format
 
