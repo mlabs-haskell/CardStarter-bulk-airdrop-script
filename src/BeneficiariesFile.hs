@@ -11,20 +11,21 @@ import Data.Text (Text, lines, unlines, unwords, words)
 import Data.Text qualified as Text
 import Data.Text.Encoding
 import Data.Text.IO (readFile)
-import FakePAB.Address (PubKeyAddress, deserialiseAddress, fromPubKeyAddress, serialiseAddress, toPubKeyAddress)
+import FakePAB.Address (deserialiseAddress, serialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified
 import Ledger.Ada qualified as Ada
 import Ledger.Crypto (PubKeyHash (..))
 import Ledger.Value (AssetClass)
 import Ledger.Value qualified as Value
-import Plutus.V1.Ledger.Address (pubKeyHashAddress)
+import Plutus.V1.Ledger.Address (Address (..), pubKeyHashAddress)
+import Plutus.V1.Ledger.Credential (Credential (..))
 import PlutusTx.Builtins (fromBuiltin, toBuiltin)
 import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, unlines, unwords, words)
 
 data Beneficiary = Beneficiary
-  { address :: !PubKeyAddress
+  { address :: !Address
   , amount :: !Integer
   , assetClass :: !AssetClass
   }
@@ -107,17 +108,18 @@ parseAssetOrAmt str = (Right <$> parseAmt str) <> (Left <$> parseAsset str)
 parseAsset :: Text -> Either Text AssetClass
 parseAsset = first Text.pack . Attoparsec.parseOnly UtxoParser.assetClassParser
 
-parseAddress :: Bool -> Text -> Either Text PubKeyAddress
+parseAddress :: Bool -> Text -> Either Text Address
 parseAddress isPubKey addrStr =
   if isPubKey
     then do
       pkh <- parsePubKeyHash' addrStr
-      toPubKeyAddress' $ pubKeyHashAddress pkh
+      toAddress $ pubKeyHashAddress pkh
     else do
       addr <- deserialiseAddress addrStr
-      toPubKeyAddress' addr
+      toAddress addr
   where
-    toPubKeyAddress' = maybeToRight ("Script addresses are not allowed: " <> addrStr) . toPubKeyAddress
+    toAddress addr@(Address (PubKeyCredential _) _) = Right addr
+    toAddress _ = Left $ "Script addresses are not allowed: " <> addrStr
 
 parsePubKeyHash' :: Text -> Either Text PubKeyHash
 parsePubKeyHash' rawStr =
@@ -161,14 +163,13 @@ prettyAsset ac
           then Right sEncoded
           else ((sEncoded <> ".") <>) <$> nEncoded
 
-prettyAddress :: Config -> PubKeyAddress -> Either Text Text
-prettyAddress conf pka =
-  let addr = fromPubKeyAddress pka
-   in if conf.usePubKeys
-        then
-          let pkh = Ledger.toPubKeyHash addr
-           in prettyPubKeyHash' <$> maybeToRight ("Script addresses are not allowed: " <> Text.pack (show pka)) pkh
-        else serialiseAddress conf addr
+prettyAddress :: Config -> Address -> Either Text Text
+prettyAddress conf addr =
+  if conf.usePubKeys
+    then
+      let pkh = Ledger.toPubKeyHash addr
+       in prettyPubKeyHash' <$> maybeToRight ("Script addresses are not allowed: " <> Text.pack (show addr)) pkh
+    else serialiseAddress conf addr
 
 prettyPubKeyHash' :: PubKeyHash -> Text
 prettyPubKeyHash' = encodeByteString . fromBuiltin . getPubKeyHash

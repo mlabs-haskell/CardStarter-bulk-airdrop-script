@@ -1,20 +1,19 @@
 module TokenAirdrop (tokenAirdrop) where
 
-import BeneficiariesFile (Beneficiary, address, prettyContent, readBeneficiariesFile)
+import BeneficiariesFile (Beneficiary, prettyContent, readBeneficiariesFile)
 import Config (Config (..))
 import Control.Monad.Except
 import Data.List (tails)
-import Data.Map (Map, fromList, keys)
+import Data.Map (keys)
 import Data.Text (Text, unpack)
 import Data.Void (Void)
-import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
-import Ledger.Address (PaymentPubKeyHash (..))
+import Ledger (unitDatum)
+import Ledger.Address (Address (..), PaymentPubKeyHash (..), StakePubKeyHash (..))
 import Ledger.Constraints qualified as Constraints
-import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
-import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
+import Plutus.V1.Ledger.Api (Credential (..), StakingCredential (..), TxId, TxOutRef (txOutRefId))
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (takeDirectory)
 import System.IO (hFlush, stdout)
@@ -37,7 +36,7 @@ tokenAirdrop config = do
             map
               ( \beneficiary ->
                   let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
-                   in (Constraints.mustPayToPubKey (PaymentPubKeyHash beneficiary.address.pkaPubKeyHash) val, [beneficiary])
+                   in (mustPayToAddress beneficiary.address val, [beneficiary])
               )
               beneficiaries
 
@@ -45,11 +44,7 @@ tokenAirdrop config = do
     putStrLn "Batched recipients:"
     mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
 
-  let addrs :: [PubKeyAddress]
-      addrs = address <$> beneficiaries
-      pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
-      pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
-      indexedTxs :: [IndexedTransaction]
+  let indexedTxs :: [IndexedTransaction]
       indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
   runExceptT $ do
@@ -57,7 +52,7 @@ tokenAirdrop config = do
       confirmed <- lift confirmTxSubmission
       unless confirmed $ throwError "Operation stopped by user"
 
-    ExceptT $ processTransactions indexedTxs pubKeyAddressMap
+    ExceptT $ processTransactions indexedTxs
   where
     confirmTxSubmission :: IO Bool
     confirmTxSubmission = do
@@ -71,8 +66,8 @@ tokenAirdrop config = do
           putStrLn "Answer is not valid"
           confirmTxSubmission
 
-    processTransactions :: [IndexedTransaction] -> Map PubKeyHash PubKeyAddress -> IO (Either Text ())
-    processTransactions txs pubKeyAddressMap = mapMErr go (tails txs)
+    processTransactions :: [IndexedTransaction] -> IO (Either Text ())
+    processTransactions txs = mapMErr go (tails txs)
       where
         go :: [IndexedTransaction] -> IO (Either Text ())
         go [] = Right () <$ logBeneficiaries [] []
@@ -85,7 +80,7 @@ tokenAirdrop config = do
           utxos <- utxosAt config $ config.ownAddress
           let lookups = Constraints.unspentOutputs utxos
 
-          eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
+          eTxId <- submitTx @Void config lookups tx
           case eTxId of
             Left err -> pure $ Left err
             Right txId -> do
@@ -131,3 +126,11 @@ group :: Int -> [a] -> [[a]]
 group n list
   | length list <= n = [list]
   | otherwise = let (xs, xss) = splitAt n list in xs : group n xss
+
+mustPayToAddress :: Address -> Value.Value -> Constraints.TxConstraints i o
+mustPayToAddress (Address (PubKeyCredential pkh) (Just (StakingHash (PubKeyCredential skh)))) =
+  Constraints.mustPayToPubKeyAddress (PaymentPubKeyHash pkh) (StakePubKeyHash skh)
+mustPayToAddress (Address (PubKeyCredential pkh) _) =
+  Constraints.mustPayToPubKey (PaymentPubKeyHash pkh)
+mustPayToAddress (Address (ScriptCredential vh) _) =
+  Constraints.mustPayToOtherScript vh unitDatum
