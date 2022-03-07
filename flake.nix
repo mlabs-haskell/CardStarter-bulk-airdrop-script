@@ -71,6 +71,7 @@
               [ pkgs.cabal-install pkgs.hlint pkgs.haskellPackages.fourmolu ];
 
             additional = ps: [
+                    ps.plutus-extra
                     ps.plutus-pab
                     ps.plutus-tx
                     ps.plutus-tx-plugin
