@@ -27,7 +27,6 @@ import Data.Text (Text, null)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import Data.Text.Lazy qualified as LazyText
-import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.PreBalance (preBalanceTx)
 import FakePAB.UtxoParser qualified as UtxoParser
 import GHC.Generics (Generic)
@@ -40,6 +39,7 @@ import Ledger.TxId (TxId (..))
 import Ledger.Value (Value)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
+import Plutus.V1.Ledger.Extra (unsafeSerialiseAddress)
 import PlutusTx.Builtins (fromBuiltin)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
@@ -116,7 +116,7 @@ utxosAt config address = do
       , cmdArgs =
           mconcat
             [ ["query", "utxo"]
-            , ["--address", unsafeSerialiseAddress config address]
+            , ["--address", unsafeSerialiseAddress config.network address]
             , networkOpt config
             ]
       , cmdOutParser =
@@ -153,7 +153,7 @@ buildTx config ownAddr tx = do
         , txInCollateralOpts (txCollateral tx)
         , txOutOpts config (txOutputs tx)
         , mconcat
-            [ ["--change-address", unsafeSerialiseAddress config ownAddr]
+            [ ["--change-address", unsafeSerialiseAddress config.network ownAddr]
             , networkOpt config
             , ["--protocol-params-file", Text.pack config.protocolParamsFile]
             , ["--out-file", txToFileName "raw" tx]
@@ -212,7 +212,7 @@ txOutOpts config =
         [ "--tx-out"
         , Text.intercalate
             "+"
-            [ unsafeSerialiseAddress config txOutAddress
+            [ unsafeSerialiseAddress config.network txOutAddress
             , valueToCliArg txOutValue
             ]
         ]

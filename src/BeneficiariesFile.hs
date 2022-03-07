@@ -11,7 +11,6 @@ import Data.Text (Text, lines, unlines, unwords, words)
 import Data.Text qualified as Text
 import Data.Text.Encoding
 import Data.Text.IO (readFile)
-import FakePAB.Address (deserialiseAddress, serialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger qualified
 import Ledger.Ada qualified as Ada
@@ -20,6 +19,7 @@ import Ledger.Value (AssetClass)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Address (Address (..), pubKeyHashAddress)
 import Plutus.V1.Ledger.Credential (Credential (..))
+import Plutus.V1.Ledger.Extra (deserialiseAddress, serialiseAddress)
 import PlutusTx.Builtins (fromBuiltin, toBuiltin)
 import Text.Read (readMaybe)
 import Prelude hiding (lines, readFile, unlines, unwords, words)
@@ -175,7 +175,7 @@ prettyAddress conf addr =
     then
       let pkh = Ledger.toPubKeyHash addr
        in prettyPubKeyHash' <$> maybeToRight ("Script addresses are not allowed: " <> Text.pack (show addr)) pkh
-    else serialiseAddress conf addr
+    else serialiseAddress conf.network addr
 
 prettyPubKeyHash' :: PubKeyHash -> Text
 prettyPubKeyHash' = encodeByteString . fromBuiltin . getPubKeyHash

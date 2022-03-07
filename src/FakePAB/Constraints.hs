@@ -11,7 +11,6 @@ import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
-import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.CardanoCLI (queryTip, submitScript, utxosAt)
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address)
@@ -23,6 +22,7 @@ import Ledger.Tx qualified as Tx
 import Ledger.Typed.Scripts.Validators (DatumType, RedeemerType)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId)
+import Plutus.V1.Ledger.Extra (unsafeSerialiseAddress)
 import PlutusTx (FromData, ToData)
 import PlutusTx.Builtins (fromBuiltin)
 import Prelude
@@ -75,7 +75,7 @@ prettyUtxos config address utxos =
       Text.unwords
         [ utxoCount
         , "UTXO(s) found at"
-        , unsafeSerialiseAddress config address <> ":"
+        , unsafeSerialiseAddress config.network address <> ":"
         ]
     utxoCount = Text.pack (show (length utxos))
     appendDivider txt =

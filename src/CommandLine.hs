@@ -9,7 +9,6 @@ import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
 import Data.Scientific (Scientific)
 import Data.Text qualified as Text
-import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
 import Ledger.Address (Address)
 import Ledger.Crypto (PubKeyHash)
@@ -36,6 +35,7 @@ import Options.Applicative (
   value,
  )
 import Plutus.V1.Ledger.Address (pubKeyHashAddress)
+import Plutus.V1.Ledger.Extra (deserialiseAddress)
 import Prelude
 
 -- | CLI configuration parser
