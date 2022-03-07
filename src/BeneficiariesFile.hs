@@ -43,26 +43,34 @@ parseContent conf =
 parseBeneficiary :: Config -> Text -> Either Text Beneficiary
 parseBeneficiary conf = toBeneficiary . words
   where
-    exclusiveQuantity :: Either Text Scientific -> Maybe Scientific -> Either Text Scientific
-    exclusiveQuantity = exclusive "Quantity supplied in both config and beneficiaries file"
+    bothError :: Text -> Either Text b
+    bothError t = Left (t <> "supplied in both config and beneficiaries file")
 
-    exclusiveAssetClass :: Either Text AssetClass -> Maybe AssetClass -> Either Text AssetClass
-    exclusiveAssetClass = exclusive "Assetclass supplied in both config and beneficiaries file"
+    neitherError :: Text -> Either Text b
+    neitherError t = Left (t <> "supplied in neither config and beneficiaries file")
+
+    exclusiveQuantity :: Maybe Scientific -> Maybe Scientific -> Either Text Scientific
+    exclusiveQuantity = exclusive (bothError "Quantity") (neitherError "Quantity")
+
+    exclusiveAssetClass :: Maybe AssetClass -> Maybe AssetClass -> Either Text AssetClass
+    exclusiveAssetClass = exclusive (bothError "AssetClass") (neitherError "AssetClass")
 
     toBeneficiary :: [Text] -> Either Text Beneficiary
+    toBeneficiary [_, _, _] | Just _ <- conf.dropAmount = bothError "Quantity"
+    toBeneficiary [_, _, _] | Just _ <- conf.assetClass = bothError "AssetClass"
     toBeneficiary [addr, amt, ac] =
       makeBeneficiary
         addr
-        (exclusiveQuantity (parseAmt amt) conf.dropAmount)
-        (exclusiveAssetClass (parseAsset ac) conf.assetClass)
+        (parseAmt amt)
+        (parseAsset ac)
     -- Second arg could be amount or asset class, so we try to parse as an amount first, if not, then asset
     -- Then fill in the Beneficiary with the data we have left, failing if we're missing anything or have duplicates
     toBeneficiary [addr, assetOrAmt] = do
       eAssetOrAmt <- parseAssetOrAmt assetOrAmt
       makeBeneficiary
         addr
-        (exclusiveQuantity (maybeToRight "Missing quantity" $ rightToMaybe eAssetOrAmt) conf.dropAmount)
-        (exclusiveAssetClass (maybeToRight "Missing assetclass" $ leftToMaybe eAssetOrAmt) conf.assetClass)
+        (exclusiveQuantity (rightToMaybe eAssetOrAmt) conf.dropAmount)
+        (exclusiveAssetClass (leftToMaybe eAssetOrAmt) conf.assetClass)
     toBeneficiary [addr] =
       makeBeneficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
     toBeneficiary _ = Left "Invalid number of inputs"
@@ -90,11 +98,12 @@ scientificToInteger s = maybe truncated (,Nothing) (scientificToMaybeInteger s)
     (quotient, remainder) = coefficient s `divMod` (10 ^ negate b10e)
     truncated = (quotient, Just $ fromInteger remainder * (10 ^^ b10e))
 
-exclusive :: a -> Either a b -> Maybe b -> Either a b
-exclusive both x y = case (x, y) of
-  (_, Nothing) -> x
-  (Right _, Just _) -> Left both
-  (Left _, Just a) -> Right a
+exclusive :: Either a b -> Either a b -> Maybe b -> Maybe b -> Either a b
+exclusive both neither x y = case (x, y) of
+  (Just a, Nothing) -> Right a
+  (Nothing, Just a) -> Right a
+  (Nothing, Nothing) -> neither
+  (Just _, Just _) -> both
 
 maybeToMissing :: Text -> Maybe a -> Either Text a
 maybeToMissing name = maybeToRight ("Missing " <> name)
