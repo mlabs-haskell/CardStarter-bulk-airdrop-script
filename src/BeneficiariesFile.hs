@@ -59,10 +59,7 @@ parseBeneficiary conf = toBeneficiary . words
     toBeneficiary [_, _, _] | Just _ <- conf.dropAmount = bothError "Quantity"
     toBeneficiary [_, _, _] | Just _ <- conf.assetClass = bothError "AssetClass"
     toBeneficiary [addr, amt, ac] =
-      makeBeneficiary
-        addr
-        (parseAmt amt)
-        (parseAsset ac)
+      makeBeneficiary addr (parseAmt amt) (parseAsset ac)
     -- Second arg could be amount or asset class, so we try to parse as an amount first, if not, then asset
     -- Then fill in the Beneficiary with the data we have left, failing if we're missing anything or have duplicates
     toBeneficiary [addr, assetOrAmt] = do
