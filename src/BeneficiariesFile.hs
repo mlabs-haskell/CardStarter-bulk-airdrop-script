@@ -1,11 +1,13 @@
 module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, prettyContent, parseContent) where
 
 import Config (Config (..))
+import Control.Monad (guard, when)
 import Data.Aeson.Extras (encodeByteString, tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Bifunctor (first)
-import Data.Either.Combinators (leftToMaybe, mapLeft, maybeToRight, rightToMaybe)
-import Data.Maybe (isNothing)
+import Data.Either.Combinators (leftToMaybe, maybeToRight, rightToMaybe)
+import Data.Functor (($>))
+import Data.Maybe (catMaybes, isJust, isNothing)
 import Data.Scientific
 import Data.Text (Text, lines, unlines, unwords, words)
 import Data.Text qualified as Text
@@ -44,10 +46,10 @@ parseBeneficiary :: Config -> Text -> Either Text Beneficiary
 parseBeneficiary conf = toBeneficiary . words
   where
     bothError :: Text -> Either Text b
-    bothError t = Left (t <> "supplied in both config and beneficiaries file")
+    bothError t = Left (t <> " supplied in both config and beneficiaries file")
 
     neitherError :: Text -> Either Text b
-    neitherError t = Left (t <> "supplied in neither config and beneficiaries file")
+    neitherError t = Left (t <> " supplied in neither config and beneficiaries file")
 
     exclusiveQuantity :: Maybe Scientific -> Maybe Scientific -> Either Text Scientific
     exclusiveQuantity = exclusive (bothError "Quantity") (neitherError "Quantity")
@@ -56,9 +58,9 @@ parseBeneficiary conf = toBeneficiary . words
     exclusiveAssetClass = exclusive (bothError "AssetClass") (neitherError "AssetClass")
 
     toBeneficiary :: [Text] -> Either Text Beneficiary
-    toBeneficiary [_, _, _] | Just _ <- conf.dropAmount = bothError "Quantity"
-    toBeneficiary [_, _, _] | Just _ <- conf.assetClass = bothError "AssetClass"
-    toBeneficiary [addr, amt, ac] =
+    toBeneficiary [addr, amt, ac] = do
+      when (isJust conf.dropAmount) $ bothError "Quantity"
+      when (isJust conf.assetClass) $ bothError "AssetClass"
       makeBeneficiary addr (parseAmt amt) (parseAsset ac)
     -- Second arg could be amount or asset class, so we try to parse as an amount first, if not, then asset
     -- Then fill in the Beneficiary with the data we have left, failing if we're missing anything or have duplicates
@@ -145,11 +147,11 @@ prettyContent conf =
 prettyBeneficiary :: Config -> Beneficiary -> Either Text Text
 prettyBeneficiary conf (Beneficiary addr amt ac) =
   unwords
-    <$> sequence
-      ( [prettyAddress conf addr]
-          <> [prettyAmount conf amt | isNothing conf.dropAmount]
-          <> [prettyAsset ac | isNothing conf.assetClass]
-      )
+    <$> (sequence . catMaybes)
+      [ Just $ prettyAddress conf addr
+      , guard (isNothing conf.dropAmount) $> prettyAmount conf amt
+      , guard (isNothing conf.assetClass) $> prettyAsset ac
+      ]
 
 prettyAmount :: Config -> Integer -> Either Text Text
 prettyAmount conf amt = Right $ maybe format (Text.pack . show) (scientificToMaybeInteger @Integer amt')
@@ -164,10 +166,11 @@ prettyAsset ac
   | otherwise =
     let (s, n) = Value.unAssetClass ac
         sEncoded = encodeByteString . fromBuiltin . Value.unCurrencySymbol $ s
-        nEncoded = mapLeft (const "Token name was not UTF-8") . decodeUtf8' . fromBuiltin . Value.unTokenName $ n
-     in if n == ""
-          then Right sEncoded
-          else ((sEncoded <> ".") <>) <$> nEncoded
+        nEncoded = decodeUtf8' . fromBuiltin . Value.unTokenName $ n
+     in case nEncoded of
+          Right n' | Text.null n' -> Right sEncoded
+          Right n' -> Right $ sEncoded <> "." <> n'
+          Left _ -> Left "Token name was not UTF-8"
 
 prettyAddress :: Config -> Address -> Either Text Text
 prettyAddress conf addr =

@@ -5,6 +5,7 @@ import Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Config (Config (..))
 import Control.Monad (guard, (>=>))
 import Data.Either (isLeft)
+import Data.Functor (($>))
 import Data.Maybe (catMaybes, isNothing)
 import Data.Scientific
 import Data.Text (Text, pack, unlines, unpack, unwords)
@@ -91,7 +92,7 @@ instance Arbitrary TokenAmount where
   arbitrary = do
     Positive (Large x) <- arbitrary @(Positive (Large Int))
     Small scale <- arbitrary @(Small Int)
-    pure . TokenAmount $ normalize $ scientific (toInteger x) scale
+    pure . TokenAmount . normalize $ scientific (toInteger x) scale
 
 instance Arbitrary Beneficiaries where
   arbitrary = do
@@ -99,7 +100,7 @@ instance Arbitrary Beneficiaries where
     Positive dp <- arbitrary @(Positive Integer)
 
     dropAmount' <- fmap unTokenAmount <$> arbitrary @(Maybe TokenAmount)
-    assetClass' <- (defaultConfig.assetClass <*) <$> arbitrary @(Maybe ())
+    assetClass' <- liftArbitrary . pure $ Value.assetClass "adc123" "testtoken"
     let config =
           defaultConfig
             { usePubKeys = usePK
@@ -114,14 +115,22 @@ instance Arbitrary Beneficiaries where
       beneficiary :: Bool -> Bool -> Bool -> Gen Text
       beneficiary usePubKey addAssetClass addTokenAmount = do
         let destination = if usePubKey then pkhs else addresses
-            tokenAmount = do
-              amt <- arbitrary @TokenAmount
-              pure $ (pack . formatScientific Fixed Nothing . unTokenAmount $ amt) <$ guard addTokenAmount
-            currencySymbol = do
+            tokenAmount =
+              pack . formatScientific Fixed Nothing . unTokenAmount <$> arbitrary
+            asset = do
               symbol <- currencySymbols
-              maybeTokenName <- liftArbitrary @Maybe tokenNames
-              pure $ maybe symbol ((symbol <> ".") <>) maybeTokenName <$ guard addAssetClass
-        unwords <$> (catMaybes <$> sequence [Just <$> destination, tokenAmount, currencySymbol])
+              addTokenName <- arbitrary @Bool
+              if addTokenName
+                then do
+                  tokenName <- tokenNames
+                  pure $ symbol <> "." <> tokenName
+                else pure symbol
+        unwords
+          <$> (sequence . catMaybes)
+            [ Just destination
+            , guard addTokenAmount $> tokenAmount
+            , guard addAssetClass $> asset
+            ]
 
       addresses :: Gen Text
       addresses =
