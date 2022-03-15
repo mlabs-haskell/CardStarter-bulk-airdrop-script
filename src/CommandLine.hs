@@ -56,6 +56,8 @@ configParser =
     <*> pFees
     <*> pDecimalPlaces
     <*> pTruncate
+    <*> pCurrentBeneficiariesLog
+    <*> pRemainingBeneficiariesLog
     <*> pVerbose
 
 opts :: ParserInfo Config
@@ -119,13 +121,13 @@ pAssetClass :: Parser AssetClass
 pAssetClass =
   option
     (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
-    (long "asset-class" <> help "Token asset class (overrides beneficiaries file config)" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
+    (long "asset-class" <> help "Token asset class. The beneficiaries file must not contain token asset classes" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
 
 pDropAmount :: Parser Scientific
 pDropAmount =
   option
     auto
-    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary (overrides beneficiaries file config)" <> metavar "RATIONAL")
+    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary. The beneficaries file must not contain token amounts" <> metavar "RATIONAL")
 
 pBeneficiariesFile :: Parser FilePath
 pBeneficiariesFile =
@@ -182,6 +184,18 @@ pTruncate :: Parser Bool
 pTruncate =
   switch
     (long "truncate" <> help "Allow discarding the decimal part of token amounts. In effect, always rounds down to the nearest natural number")
+
+pCurrentBeneficiariesLog :: Parser FilePath
+pCurrentBeneficiariesLog =
+  option
+    auto
+    (long "current-beneficiaries-log" <> help "File to write the current beneficiaries of a transaction" <> showDefault <> value "current-beneficiaries.log" <> metavar "FILENAME")
+
+pRemainingBeneficiariesLog :: Parser FilePath
+pRemainingBeneficiariesLog =
+  option
+    auto
+    (long "remaining-beneficiaries-log" <> help "File to write the remaining beneficiaries after each transaction" <> showDefault <> value "remaining-beneficiaries.log" <> metavar "FILENAME")
 
 pVerbose :: Parser Bool
 pVerbose =

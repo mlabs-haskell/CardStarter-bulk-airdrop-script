@@ -24,6 +24,8 @@ data Config = Config
   , fees :: Integer
   , decimalPlaces :: Integer
   , truncate :: !Bool
+  , currentBeneficiariesLog :: !FilePath
+  , remainingBeneficiariesLog :: !FilePath
   , verbose :: !Bool
   }
   deriving (Show)

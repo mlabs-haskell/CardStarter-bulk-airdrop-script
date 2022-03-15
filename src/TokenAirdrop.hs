@@ -1,10 +1,11 @@
 module TokenAirdrop (tokenAirdrop) where
 
-import BeneficiariesFile (Beneficiary, readBeneficiariesFile)
+import BeneficiariesFile (Beneficiary, prettyContent, readBeneficiariesFile)
 import Config (Config (..))
-import Control.Monad (when)
+import Control.Monad.Except
+import Data.List (tails)
 import Data.Map (keys)
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Data.Void (Void)
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
@@ -12,9 +13,13 @@ import Ledger.Constraints qualified as Constraints
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
 import Plutus.V1.Ledger.Extra qualified as Extra
+import System.Directory (createDirectoryIfMissing)
+import System.FilePath (takeDirectory)
 import System.IO (hFlush, stdout)
 import Wallet.Types (ContractError)
 import Prelude
+
+type IndexedTransaction = (Constraints.TxConstraints Void Void, [Beneficiary], Int)
 
 -- Number of blocks to wait before issuing a warning
 blockCountWarning :: Integer
@@ -42,16 +47,15 @@ tokenAirdrop config = do
     putStrLn "Batched recipients:"
     mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
 
-  let indexedTxs :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)]
+  let indexedTxs :: [IndexedTransaction]
       indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
-  if config.live
-    then do
-      confirm <- confirmTxSubmission
-      if confirm
-        then processTransactions indexedTxs
-        else pure $ Left "Operation stopped by user"
-    else processTransactions indexedTxs
+  runExceptT $ do
+    when config.live $ do
+      confirmed <- lift confirmTxSubmission
+      unless confirmed $ throwError "Operation stopped by user"
+
+    ExceptT $ processTransactions indexedTxs
   where
     fromContractError :: Either ContractError [a] -> IO [a]
     fromContractError = either (error . show) pure
@@ -68,27 +72,41 @@ tokenAirdrop config = do
           putStrLn "Answer is not valid"
           confirmTxSubmission
 
-    processTransactions :: [(Constraints.TxConstraints Void Void, [Beneficiary], Int)] -> IO (Either Text ())
-    processTransactions txs =
-      mapMErr
-        ( \(tx, bs, i) -> do
-            putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
-            mapM_ print bs
+    processTransactions :: [IndexedTransaction] -> IO (Either Text ())
+    processTransactions txs = mapMErr go (tails txs)
+      where
+        go :: [IndexedTransaction] -> IO (Either Text ())
+        go [] = Right () <$ logBeneficiaries [] []
+        go ((tx, bs, i) : remaining) = do
+          when config.live $ logBeneficiaries bs (concatMap (\(_, b, _) -> b) remaining)
 
-            utxos <- utxosAt config $ config.ownAddress
-            let lookups = Constraints.unspentOutputs utxos
+          putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
+          mapM_ print bs
 
-            eTxId <- submitTx @Void config lookups tx
-            case eTxId of
-              Left err -> pure $ Left err
-              Right txId -> do
-                when config.live $ do
-                  putStrLn $ "Submitted transaction successfully: " ++ show txId
-                  putStrLn "Waiting for confirmation..."
-                  waitUntilHasTxIn config 0 txId
-                pure $ Right ()
-        )
-        txs
+          utxos <- utxosAt config $ config.ownAddress
+          let lookups = Constraints.unspentOutputs utxos
+
+          eTxId <- submitTx @Void config lookups tx
+          case eTxId of
+            Left err -> pure $ Left err
+            Right txId -> do
+              when config.live $ do
+                putStrLn $ "Submitted transaction successfully: " ++ show txId
+                putStrLn "Waiting for confirmation..."
+                waitUntilHasTxIn config 0 txId
+              pure $ Right ()
+
+    writeLog :: FilePath -> Either Text Text -> IO ()
+    writeLog path = \case
+      Left err -> error . unpack $ err
+      Right t -> do
+        createDirectoryIfMissing True $ takeDirectory path
+        writeFile config.currentBeneficiariesLog $ unpack t
+
+    logBeneficiaries :: [Beneficiary] -> [Beneficiary] -> IO ()
+    logBeneficiaries current remaining = do
+      writeLog config.currentBeneficiariesLog $ prettyContent config current
+      writeLog config.remainingBeneficiariesLog $ prettyContent config remaining
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()

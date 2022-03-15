@@ -34,7 +34,9 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
                      [--asset-class CURRENCY_SYMBOL.TOKEN_NAME]
                      [--drop-amount RATIONAL] --beneficiaries-per-tx NATURAL
                      [--live] --min-lovelaces NATURAL --fees NATURAL
-                     [--decimal-places NATURAL] [--truncate] [--verbose]
+                     [--decimal-places NATURAL] [--truncate]
+                     [--current-beneficiaries-log FILENAME]
+                     [--remaining-beneficiaries-log FILENAME] [--verbose]
   CLI tool to simplify sending native tokens to multiple users
 ```
 
@@ -44,14 +46,16 @@ Usage: token-airdrop (--mainnet | --testnet-magic NATURAL)
 - `use-pub-key-hashes`: Sets the beneficiary file to accept PubKeyHashes over addresses
 - `own-pub-key-hash`: PubKeyHash of the address holding the tokens to be distributed
 - `signing-key-file`: Signing key file of the above PubKeyHash. This will default to `./config/server.skey`
-- `asset-class`: Token asset class (overrides beneficiaries file config)
-- `drop-amount`: Amount of tokens to send to each beneficiary (overrides beneficiaries file config)
+- `asset-class`: Token asset class. The beneficiaries file must not contain token asset classes
+- `drop-amount`: Amount of tokens to send to each beneficiary. The beneficaries file must not contain token amounts
 - `beneficiaryPerTx`: This controls how many transaction outputs we batch together. In case the tranaction exceeds the size limit, try to change this value
 - `live`: Pass this flag to submit the transaction. Otherwise it is just printed to stdout
 - `min-lovelaces`: Minimum lovelace amount for each utxo (change this it you get a Minimum required UTxO error)
 - `fees`: Transaction fees, this is only used for coin selection, the actual fee is calculated by the cardano-cli
 - `decimal-places`: Scale all token amounts by this many decimal places (value * 10^decimal-places)
 - `truncate`: Allow rounding down token amounts to the nearest natural number when there is a decimal part
+- `current-beneficiaries-log`: File to write the current beneficiaries of a transaction
+- `remaining-beneficiaries-log`: File to write the remaining beneficiaries after each transaction
 
 ### Beneficiaries format
 
