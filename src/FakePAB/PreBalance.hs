@@ -180,7 +180,7 @@ filterNonAda = Value . filterKey (/= Ada.adaSymbol) . getValue
 
 minus :: Value -> Value -> Value
 minus x y =
-  let negativeValues = map (\(c, t, a) -> (c, t, - a)) $ Value.flattenValue y
+  let negativeValues = map (\(c, t, a) -> (c, t, -a)) $ Value.flattenValue y
    in x <> mconcat (map unflattenValue negativeValues)
 
 unflattenValue :: (CurrencySymbol, TokenName, Integer) -> Value

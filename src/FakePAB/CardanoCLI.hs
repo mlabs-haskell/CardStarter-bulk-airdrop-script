@@ -124,7 +124,7 @@ utxosAt config address = do
       }
   where
     toUtxo :: Text -> Either String (TxOutRef, ChainIndexTxOut)
-    toUtxo line = parseOnly (UtxoParser.utxoMapParser address) line
+    toUtxo = parseOnly (UtxoParser.utxoMapParser address)
 
 -- | Gets the transaction ID as reported from the CLI - for this can differ due to CLI's balancing
 getCLITxId :: Tx -> IO TxId

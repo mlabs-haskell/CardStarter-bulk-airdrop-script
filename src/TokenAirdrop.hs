@@ -101,7 +101,7 @@ tokenAirdrop config = do
       Left err -> error . unpack $ err
       Right t -> do
         createDirectoryIfMissing True $ takeDirectory path
-        writeFile config.currentBeneficiariesLog $ unpack t
+        writeFile path $ unpack t
 
     logBeneficiaries :: [Beneficiary] -> [Beneficiary] -> IO ()
     logBeneficiaries current remaining = do
