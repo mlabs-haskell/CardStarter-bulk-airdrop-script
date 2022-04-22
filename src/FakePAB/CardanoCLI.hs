@@ -27,19 +27,19 @@ import Data.Text (Text, null)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import Data.Text.Lazy qualified as LazyText
-import FakePAB.Address (unsafeSerialiseAddress)
 import FakePAB.PreBalance (preBalanceTx)
 import FakePAB.UtxoParser qualified as UtxoParser
 import GHC.Generics (Generic)
 import Ledger.Ada qualified as Ada
 import Ledger.Address (Address (..))
-import Ledger.Constraints.OffChain (UnbalancedTx (..))
+import Ledger.Constraints.OffChain (UnbalancedTx (..), fromScriptOutput)
 import Ledger.Tx (ChainIndexTxOut, Tx (..), TxIn (..), TxOut (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
 import Ledger.TxId (TxId (..))
 import Ledger.Value (Value)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (CurrencySymbol (..), TokenName (..))
+import Plutus.V1.Ledger.Extra (unsafeSerialiseAddress)
 import PlutusTx.Builtins (fromBuiltin)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
@@ -66,7 +66,7 @@ submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
 
   utxos <- utxosAt config ownAddr
 
-  let utxoIndex = fmap Tx.toTxOut utxos <> unBalancedTxUtxoIndex
+  let utxoIndex = fmap Tx.toTxOut utxos <> fmap (Tx.toTxOut . fromScriptOutput) unBalancedTxUtxoIndex
       eitherPreBalancedTx =
         preBalanceTx config.minLovelaces config.fees utxoIndex ownAddr unBalancedTxTx
 
@@ -78,13 +78,13 @@ submitScript config UnbalancedTx {unBalancedTxTx, unBalancedTxUtxoIndex} = do
       signTx preparedTx config.signingKeyFile
       txId <- getCLITxId preparedTx
 
-      if config.dryRun
+      if config.live
         then do
-          putStrLn $ "Dry run, not submitting transaction: " <> show txId
-          pure $ Right txId
-        else do
           putStrLn $ "Submitting transaction: " <> show txId
           fmap (txId <$) $ submitTx preparedTx config
+        else do
+          putStrLn $ "Dry run, not submitting transaction: " <> show txId
+          pure $ Right txId
 
 data Tip = Tip
   { epoch :: Integer
@@ -116,7 +116,7 @@ utxosAt config address = do
       , cmdArgs =
           mconcat
             [ ["query", "utxo"]
-            , ["--address", unsafeSerialiseAddress config address]
+            , ["--address", unsafeSerialiseAddress config.network address]
             , networkOpt config
             ]
       , cmdOutParser =
@@ -124,7 +124,7 @@ utxosAt config address = do
       }
   where
     toUtxo :: Text -> Either String (TxOutRef, ChainIndexTxOut)
-    toUtxo line = parseOnly (UtxoParser.utxoMapParser address) line
+    toUtxo = parseOnly (UtxoParser.utxoMapParser address)
 
 -- | Gets the transaction ID as reported from the CLI - for this can differ due to CLI's balancing
 getCLITxId :: Tx -> IO TxId
@@ -153,7 +153,7 @@ buildTx config ownAddr tx = do
         , txInCollateralOpts (txCollateral tx)
         , txOutOpts config (txOutputs tx)
         , mconcat
-            [ ["--change-address", unsafeSerialiseAddress config ownAddr]
+            [ ["--change-address", unsafeSerialiseAddress config.network ownAddr]
             , networkOpt config
             , ["--protocol-params-file", Text.pack config.protocolParamsFile]
             , ["--out-file", txToFileName "raw" tx]
@@ -212,7 +212,7 @@ txOutOpts config =
         [ "--tx-out"
         , Text.intercalate
             "+"
-            [ unsafeSerialiseAddress config txOutAddress
+            [ unsafeSerialiseAddress config.network txOutAddress
             , valueToCliArg txOutValue
             ]
         ]

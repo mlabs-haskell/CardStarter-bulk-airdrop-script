@@ -4,27 +4,25 @@ module FakePAB.Constraints (submitTx, waitNSlots, logRecipientsUtxos) where
 
 import Config (Config)
 import Control.Concurrent (threadDelay)
-import Control.Lens (mapped, (%~), (^.))
+import Control.Lens ((^.))
 import Control.Monad (unless)
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
-import FakePAB.Address (PubKeyAddress, fromPubKeyAddress, unsafeSerialiseAddress)
 import FakePAB.CardanoCLI (queryTip, submitScript, utxosAt)
 import Ledger.Ada qualified as Ada
-import Ledger.Address (Address, toPubKeyHash)
+import Ledger.Address (Address)
 import Ledger.Constraints (ScriptLookups (..))
-import Ledger.Constraints.OffChain (UnbalancedTx (..), mkTx)
+import Ledger.Constraints.OffChain (mkTx)
 import Ledger.Constraints.TxConstraints (TxConstraints)
-import Ledger.Crypto (PubKeyHash)
 import Ledger.Tx (ChainIndexTxOut (..), Tx (..), TxOutRef (..))
 import Ledger.Tx qualified as Tx
 import Ledger.Typed.Scripts.Validators (DatumType, RedeemerType)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId)
+import Plutus.V1.Ledger.Extra (unsafeSerialiseAddress)
 import PlutusTx (FromData, ToData)
 import PlutusTx.Builtins (fromBuiltin)
 import Prelude
@@ -33,31 +31,17 @@ submitTx ::
   forall a.
   (FromData (DatumType a), ToData (DatumType a), ToData (RedeemerType a)) =>
   Config ->
-  Map PubKeyHash PubKeyAddress ->
   ScriptLookups a ->
   TxConstraints (RedeemerType a) (DatumType a) ->
   IO (Either Text TxId)
-submitTx config addressMap lookups constraints = do
+submitTx config lookups constraints = do
   putStrLn "Starting contract"
   let eitherUnbalancedTx = mkTx lookups constraints
   case eitherUnbalancedTx of
     Left err -> do
       print err
       pure $ Left $ Text.pack (show err)
-    Right unbalancedTx@UnbalancedTx {unBalancedTxTx = tx} -> do
-      let tx' = useFullAddresses addressMap tx
-
-      submitScript config unbalancedTx {unBalancedTxTx = tx'}
-
--- | Replaces
-useFullAddresses :: Map PubKeyHash PubKeyAddress -> Tx -> Tx
-useFullAddresses addressMap = Tx.outputs . mapped . Tx.outAddress %~ mapTxOut
-  where
-    mapTxOut :: Address -> Address
-    mapTxOut addr = fromMaybe addr $ do
-      pkh <- toPubKeyHash addr
-      pubKeyAddr <- pkh `Map.lookup` addressMap
-      pure $ fromPubKeyAddress pubKeyAddr
+    Right unbalancedTx -> submitScript config unbalancedTx
 
 {- | Wait for at least n slots. The slot number only changes when a new block is appended to the chain
  so it waits for at least one block
@@ -91,7 +75,7 @@ prettyUtxos config address utxos =
       Text.unwords
         [ utxoCount
         , "UTXO(s) found at"
-        , unsafeSerialiseAddress config address <> ":"
+        , unsafeSerialiseAddress config.network address <> ":"
         ]
     utxoCount = Text.pack (show (length utxos))
     appendDivider txt =

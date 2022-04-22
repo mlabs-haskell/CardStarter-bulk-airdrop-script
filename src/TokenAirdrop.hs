@@ -1,19 +1,25 @@
 module TokenAirdrop (tokenAirdrop) where
 
-import BeneficiariesFile (Beneficiary (address), readBeneficiariesFile)
+import BeneficiariesFile (Beneficiary, prettyContent, readBeneficiariesFile)
 import Config (Config (..))
-import Control.Monad (when)
-import Data.Map (Map, fromList, keys)
-import Data.Text (Text)
+import Control.Monad.Except
+import Data.List (tails)
+import Data.Map (keys)
+import Data.Text (Text, unpack)
 import Data.Void (Void)
-import FakePAB.Address (PubKeyAddress (pkaPubKeyHash))
 import FakePAB.CardanoCLI (utxosAt)
 import FakePAB.Constraints (submitTx, waitNSlots)
 import Ledger.Constraints qualified as Constraints
-import Ledger.Crypto (PubKeyHash)
 import Ledger.Value qualified as Value
 import Plutus.V1.Ledger.Api (TxId, TxOutRef (txOutRefId))
+import Plutus.V1.Ledger.Extra qualified as Extra
+import System.Directory (createDirectoryIfMissing)
+import System.FilePath (takeDirectory)
+import System.IO (hFlush, stdout)
+import Wallet.Types (ContractError)
 import Prelude
+
+type IndexedTransaction = (Constraints.TxConstraints Void Void, [Beneficiary], Int)
 
 -- Number of blocks to wait before issuing a warning
 blockCountWarning :: Integer
@@ -24,43 +30,83 @@ tokenAirdrop config = do
   beneficiaries <- readBeneficiariesFile config
   putStrLn $ "Sending tokens to " ++ show (length beneficiaries) ++ " addresses"
 
+  constraints <-
+    fromContractError $
+      mapM
+        ( \beneficiary -> do
+            let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
+            c <- Extra.mustPayToAddress beneficiary.address val
+            pure (c, [beneficiary])
+        )
+        beneficiaries
   let txPairs =
         map mconcat $
-          group config.beneficiaryPerTx $
-            map
-              ( \beneficiary ->
-                  let val = Value.assetClassValue beneficiary.assetClass beneficiary.amount
-                   in (Constraints.mustPayToPubKey beneficiary.address.pkaPubKeyHash val, [beneficiary])
-              )
-              beneficiaries
+          group config.beneficiaryPerTx constraints
 
   when config.verbose $ do
     putStrLn "Batched recipients:"
     mapM_ (\(_, bs) -> mapM_ print bs >> putStrLn "==============") txPairs
 
-  let addrs :: [PubKeyAddress]
-      addrs = address <$> beneficiaries
-      pubKeyAddressMap :: Map PubKeyHash PubKeyAddress
-      pubKeyAddressMap = fromList $ zip (pkaPubKeyHash <$> addrs) addrs
+  let indexedTxs :: [IndexedTransaction]
+      indexedTxs = zipWith combine2To3 txPairs [1 :: Int ..]
 
-  mapMErr
-    ( \(tx, bs, i) -> do
-        putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txPairs) ++ " for following benficiaries:"
-        mapM_ print bs
+  runExceptT $ do
+    when config.live $ do
+      confirmed <- lift confirmTxSubmission
+      unless confirmed $ throwError "Operation stopped by user"
 
-        utxos <- utxosAt config $ config.ownAddress
-        let lookups = Constraints.unspentOutputs utxos
+    ExceptT $ processTransactions indexedTxs
+  where
+    fromContractError :: Either ContractError [a] -> IO [a]
+    fromContractError = either (error . show) pure
 
-        eTxId <- submitTx @Void config pubKeyAddressMap lookups tx
-        case eTxId of
-          Left err -> pure $ Left err
-          Right txId -> do
-            putStrLn $ "Submitted transaction successfully: " ++ show txId
-            putStrLn "Waiting for confirmation..."
-            waitUntilHasTxIn config 0 txId
-            pure $ Right ()
-    )
-    $ zipWith combine2To3 txPairs [1 :: Int ..]
+    confirmTxSubmission :: IO Bool
+    confirmTxSubmission = do
+      putStr "Running in live mode. Are you sure you want to submit the transactions? [yes/no] "
+      hFlush stdout
+      response <- getLine
+      case response of
+        "yes" -> pure True
+        "no" -> pure False
+        _ -> do
+          putStrLn "Answer is not valid"
+          confirmTxSubmission
+
+    processTransactions :: [IndexedTransaction] -> IO (Either Text ())
+    processTransactions txs = mapMErr go (tails txs)
+      where
+        go :: [IndexedTransaction] -> IO (Either Text ())
+        go [] = Right () <$ logBeneficiaries [] []
+        go ((tx, bs, i) : remaining) = do
+          when config.live $ logBeneficiaries bs (concatMap (\(_, b, _) -> b) remaining)
+
+          putStrLn $ "Preparing transaction " ++ show i ++ " of " ++ show (length txs) ++ " for following benficiaries:"
+          mapM_ print bs
+
+          utxos <- utxosAt config $ config.ownAddress
+          let lookups = Constraints.unspentOutputs utxos
+
+          eTxId <- submitTx @Void config lookups tx
+          case eTxId of
+            Left err -> pure $ Left err
+            Right txId -> do
+              when config.live $ do
+                putStrLn $ "Submitted transaction successfully: " ++ show txId
+                putStrLn "Waiting for confirmation..."
+                waitUntilHasTxIn config 0 txId
+              pure $ Right ()
+
+    writeLog :: FilePath -> Either Text Text -> IO ()
+    writeLog path = \case
+      Left err -> error . unpack $ err
+      Right t -> do
+        createDirectoryIfMissing True $ takeDirectory path
+        writeFile path $ unpack t
+
+    logBeneficiaries :: [Beneficiary] -> [Beneficiary] -> IO ()
+    logBeneficiaries current remaining = do
+      writeLog config.currentBeneficiariesLog $ prettyContent config current
+      writeLog config.remainingBeneficiariesLog $ prettyContent config remaining
 
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()

@@ -72,19 +72,19 @@ common common-lang
 library
   import:          common-lang
   exposed-modules:
+    BeneficiariesFile
     CommandLine
     Config
-    FakePAB.Address
     TokenAirdrop
 
   other-modules:
-    BeneficiariesFile
     FakePAB.CardanoCLI
     FakePAB.Constraints
     FakePAB.PreBalance
     FakePAB.UtxoParser
 
   build-depends:
+    , mtl
     , aeson                 ^>=1.5.0.0
     , aeson-casing
     , ansi-terminal
@@ -100,6 +100,7 @@ library
     , data-default-class
     , directory
     , either
+    , filepath
     , freer-extras
     , freer-simple
     , lens
@@ -109,8 +110,11 @@ library
     , plutus-chain-index
     , plutus-contract
     , plutus-core
+    , plutus-chain-index-core
+    , plutus-extra
     , plutus-ledger
     , plutus-ledger-api
+    , plutus-ledger-constraints
     , plutus-pab
     , plutus-tx
     , plutus-tx-plugin
@@ -119,6 +123,7 @@ library
     , process
     , row-types
     , safe
+    , scientific
     , serialise
     , split
     , stm
@@ -132,13 +137,16 @@ test-suite token-airdrop-test
   import:         common-lang
   type:           exitcode-stdio-1.0
   main-is:        Spec.hs
-  other-modules:  Spec.FakePAB.Address
+  other-modules:  Spec.FakePAB.Address Spec.BeneficiariesFile
   ghc-options:    -fplugin-opt PlutusTx.Plugin:defer-errors
   build-depends:
     , cardano-api
+    , either
+    , plutus-extra
     , plutus-ledger
     , plutus-ledger-api
     , plutus-pab
+    , scientific
     , tasty
     , tasty-hunit
     , tasty-quickcheck

@@ -7,10 +7,9 @@ import Config (Config (..))
 import Control.Applicative (optional, (<**>), (<|>))
 import Data.Attoparsec.Text qualified as Attoparsec
 import Data.Either.Combinators (mapLeft)
+import Data.Scientific (Scientific)
 import Data.Text qualified as Text
-import FakePAB.Address (deserialiseAddress)
 import FakePAB.UtxoParser qualified as UtxoParser
-import Ledger qualified
 import Ledger.Address (Address)
 import Ledger.Crypto (PubKeyHash)
 import Ledger.Value (AssetClass)
@@ -35,6 +34,8 @@ import Options.Applicative (
   switch,
   value,
  )
+import Plutus.V1.Ledger.Address (pubKeyHashAddress)
+import Plutus.V1.Ledger.Extra (deserialiseAddress)
 import Prelude
 
 -- | CLI configuration parser
@@ -50,9 +51,13 @@ configParser =
     <*> optional pAssetClass
     <*> optional pDropAmount
     <*> pBeneficiaryPerTx
-    <*> pDryRun
+    <*> pLive
     <*> pMinLovelaces
     <*> pFees
+    <*> pDecimalPlaces
+    <*> pTruncate
+    <*> pCurrentBeneficiariesLog
+    <*> pRemainingBeneficiariesLog
     <*> pVerbose
 
 opts :: ParserInfo Config
@@ -91,7 +96,7 @@ pProtocolParamsFile =
 
 pOwnAddressOrPubKeyHash :: Parser Address
 pOwnAddressOrPubKeyHash =
-  pOwnAddress <|> fmap Ledger.pubKeyHashAddress pOwnPubKeyHash
+  pOwnAddress <|> fmap pubKeyHashAddress pOwnPubKeyHash
 
 pOwnAddress :: Parser Address
 pOwnAddress =
@@ -116,13 +121,13 @@ pAssetClass :: Parser AssetClass
 pAssetClass =
   option
     (eitherReader (Attoparsec.parseOnly UtxoParser.assetClassParser . Text.pack))
-    (long "asset-class" <> help "Token asset class (overrides beneficiaries file config)" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
+    (long "asset-class" <> help "Token asset class. The beneficiaries file must not contain token asset classes" <> metavar "CURRENCY_SYMBOL.TOKEN_NAME")
 
-pDropAmount :: Parser Integer
+pDropAmount :: Parser Scientific
 pDropAmount =
   option
     auto
-    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary (overrides beneficiaries file config)" <> metavar "NATURAL")
+    (long "drop-amount" <> help "Amount of tokens to send to each beneficiary. The beneficaries file must not contain token amounts" <> metavar "RATIONAL")
 
 pBeneficiariesFile :: Parser FilePath
 pBeneficiariesFile =
@@ -144,10 +149,10 @@ pBeneficiaryPerTx =
         <> metavar "NATURAL"
     )
 
-pDryRun :: Parser Bool
-pDryRun =
+pLive :: Parser Bool
+pLive =
   switch
-    (long "dry-run" <> help "Build tx body and tx, but don't submit them")
+    (long "live" <> help "Pass this flag to submit the transaction. Otherwise it is just printed to stdout")
 
 pMinLovelaces :: Parser Integer
 pMinLovelaces =
@@ -164,6 +169,33 @@ pFees =
     ( long "fees" <> help "Transaction fees (used for coin selection)"
         <> metavar "NATURAL"
     )
+
+pDecimalPlaces :: Parser Integer
+pDecimalPlaces =
+  option
+    auto
+    ( long "decimal-places" <> help "Shift all token amounts to the left by this many decimal places"
+        <> showDefault
+        <> value 0
+        <> metavar "NATURAL"
+    )
+
+pTruncate :: Parser Bool
+pTruncate =
+  switch
+    (long "truncate" <> help "Allow discarding the decimal part of token amounts. In effect, always rounds down to the nearest natural number")
+
+pCurrentBeneficiariesLog :: Parser FilePath
+pCurrentBeneficiariesLog =
+  option
+    auto
+    (long "current-beneficiaries-log" <> help "File to write the current beneficiaries of a transaction" <> showDefault <> value "current-beneficiaries.log" <> metavar "FILENAME")
+
+pRemainingBeneficiariesLog :: Parser FilePath
+pRemainingBeneficiariesLog =
+  option
+    auto
+    (long "remaining-beneficiaries-log" <> help "File to write the remaining beneficiaries after each transaction" <> showDefault <> value "remaining-beneficiaries.log" <> metavar "FILENAME")
 
 pVerbose :: Parser Bool
 pVerbose =
