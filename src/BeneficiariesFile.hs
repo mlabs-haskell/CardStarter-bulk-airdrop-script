@@ -1,10 +1,10 @@
-module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, prettyContent, parseContent) where
+module BeneficiariesFile (readBeneficiariesFile, Beneficiary (..), parseAsset, prettyContent, parseContent, scaleAmount) where
 
 import Config (Config (..))
 import Control.Monad (guard, when)
 import Data.Aeson.Extras (encodeByteString, tryDecode)
 import Data.Attoparsec.Text qualified as Attoparsec
-import Data.Bifunctor (first)
+import Data.Bifunctor (bimap, first)
 import Data.Either.Combinators (leftToMaybe, maybeToRight, rightToMaybe)
 import Data.Functor (($>))
 import Data.Maybe (catMaybes, isJust, isNothing)
@@ -74,15 +74,15 @@ parseBeneficiary conf = toBeneficiary . words
       makeBeneficiary addr (maybeToMissing "quantity" conf.dropAmount) (maybeToMissing "assetclass" conf.assetClass)
     toBeneficiary _ = Left "Invalid number of inputs"
 
-    scaleAmount :: Scientific -> Either Text Integer
-    scaleAmount amt =
-      case scientificToInteger $ amt * (10 ^ conf.decimalPlaces) of
-        (amt', Nothing) -> Right amt'
-        (amt', Just _) | conf.truncate -> Right amt'
-        (_, Just amtc) -> Left . Text.pack $ "Too few decimal places resulted in truncation. " <> show amt <> " lost " <> show amtc
-
     makeBeneficiary :: Text -> Either Text Scientific -> Either Text AssetClass -> Either Text Beneficiary
-    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount) <*> eAc
+    makeBeneficiary addr eAmt eAc = Beneficiary <$> parseAddress conf.usePubKeys addr <*> (eAmt >>= scaleAmount conf) <*> eAc
+
+scaleAmount :: Config -> Scientific -> Either Text Integer
+scaleAmount conf amt =
+  case scientificToInteger $ amt * (10 ^ conf.decimalPlaces) of
+    (amt', Nothing) -> Right amt'
+    (amt', Just _) | conf.truncate -> Right amt'
+    (_, Just amtc) -> Left . Text.pack $ "Too few decimal places resulted in truncation. " <> show amt <> " lost " <> show amtc
 
 scientificToMaybeInteger :: Integral i => Scientific -> Maybe i
 scientificToMaybeInteger = either (const Nothing) Just . floatingOrInteger @Float
@@ -131,7 +131,7 @@ parseAddress isPubKey addrStr =
 
 parsePubKeyHash' :: Text -> Either Text PubKeyHash
 parsePubKeyHash' rawStr =
-  PubKeyHash . toBuiltin <$> first Text.pack (tryDecode rawStr)
+  bimap Text.pack (PubKeyHash . toBuiltin) (tryDecode rawStr)
 
 readBeneficiariesFile :: Config -> IO [Beneficiary]
 readBeneficiariesFile conf = do
@@ -140,8 +140,7 @@ readBeneficiariesFile conf = do
 
 prettyContent :: Config -> [Beneficiary] -> Either Text Text
 prettyContent conf =
-  first ("Beneficiaries file pretty printing error: " <>)
-    . fmap unlines
+  bimap ("Beneficiaries file pretty printing error: " <>) unlines
     . mapM (prettyBeneficiary conf)
 
 prettyBeneficiary :: Config -> Beneficiary -> Either Text Text
@@ -173,12 +172,12 @@ prettyAsset ac
           Left _ -> Left "Token name was not UTF-8"
 
 prettyAddress :: Config -> Address -> Either Text Text
-prettyAddress conf addr =
-  if conf.usePubKeys
-    then
-      let pkh = Ledger.toPubKeyHash addr
-       in prettyPubKeyHash' <$> maybeToRight ("Script addresses are not allowed: " <> Text.pack (show addr)) pkh
-    else serialiseAddress conf.network addr
+prettyAddress conf addr
+  | conf.usePubKeys
+    , let pkh = Ledger.toPubKeyHash addr =
+    prettyPubKeyHash' <$> maybeToRight ("Script addresses are not allowed: " <> Text.pack (show addr)) pkh
+  | otherwise =
+    serialiseAddress conf.network addr
 
 prettyPubKeyHash' :: PubKeyHash -> Text
 prettyPubKeyHash' = encodeByteString . fromBuiltin . getPubKeyHash

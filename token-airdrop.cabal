@@ -36,6 +36,7 @@ common common-lang
     NoImplicitPrelude
     BangPatterns
     BinaryLiterals
+    BlockArguments
     ConstraintKinds
     DataKinds
     DeriveFunctor
