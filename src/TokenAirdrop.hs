@@ -98,7 +98,7 @@ tokenAirdrop config = do
 
     writeLog :: FilePath -> Either Text Text -> IO ()
     writeLog path = \case
-      Left err -> error . unpack $ err
+      Left err -> error (unpack err)
       Right t -> do
         createDirectoryIfMissing True $ takeDirectory path
         writeFile path $ unpack t
@@ -111,8 +111,10 @@ tokenAirdrop config = do
 -- | Repeatedly waits a block until we have the inputs we need
 waitUntilHasTxIn :: Config -> Integer -> TxId -> IO ()
 waitUntilHasTxIn config n txId = do
-  when (n >= blockCountWarning) . putStrLn $ "WARNING: Waited " ++ show n ++ " blocks for transaction to land, it may have failed. (Continuing to wait)"
-  when config.verbose $ putStrLn "Waiting a block then checking own UTxOs..."
+  when (n >= blockCountWarning) do
+    putStrLn $ "WARNING: Waited " ++ show n ++ " blocks for transaction to land, it may have failed. (Continuing to wait)"
+  when config.verbose do
+    putStrLn "Waiting a block then checking own UTxOs..."
   waitNSlots config 20 -- Wait a block
   utxos <- utxosAt config $ config.ownAddress
   if any ((== txId) . txOutRefId) (keys utxos)
@@ -131,4 +133,5 @@ combine2To3 (a, b) = (a,b,)
 group :: Int -> [a] -> [[a]]
 group n list
   | length list <= n = [list]
-  | otherwise = let (xs, xss) = splitAt n list in xs : group n xss
+  | let (xs, xss) = splitAt n list =
+    xs : group n xss

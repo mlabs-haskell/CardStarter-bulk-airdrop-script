@@ -144,7 +144,7 @@ getCLITxIdFromFile txPath = do
 buildTx :: Config -> Address -> Tx -> IO ()
 buildTx config ownAddr tx = do
   writeFile (Text.unpack $ txToFileName "pre-encode" tx) (LazyText.unpack $ pShowNoColor tx)
-  callCommand $ ShellCommand "cardano-cli" opts (const ())
+  callCommand $ ShellCommand "cardano-cli" opts mempty
   where
     opts =
       mconcat
@@ -173,7 +173,7 @@ signTx tx signingKeyFile =
           , ["--out-file", txToFileName "signed" tx]
           ]
       )
-      (const ())
+      mempty
 
 -- Signs and writes a tx (uses the tx body written to disk as input)
 submitTx :: Tx -> Config -> IO (Either Text ())
