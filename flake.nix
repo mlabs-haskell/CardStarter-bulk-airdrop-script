@@ -102,5 +102,6 @@
         } "touch $out");
       apps = perSystem (system: self.flake.${system}.apps);
       devShell = perSystem (system: self.flake.${system}.devShell);
+      herculesCI.ciSystems = [ "x86_64-linux" ];
     };
 }
